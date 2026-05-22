@@ -1,0 +1,55 @@
+#files-accounting-personal,
+#files-accounting-admin {
+	padding: 8px 0;
+}
+
+#files-accounting-personal h2,
+#files-accounting-admin h2 {
+	font-size: 1.3em;
+	margin-bottom: 12px;
+}
+
+#files-accounting-personal h3,
+#files-accounting-admin h3 {
+	font-size: 1.1em;
+	margin: 16px 0 8px;
+}
+
+#fa-bills-table,
+#fa-gifts-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.95em;
+}
+
+#fa-bills-table th,
+#fa-bills-table td,
+#fa-gifts-table th,
+#fa-gifts-table td {
+	padding: 5px 8px;
+	border-bottom: 1px solid var(--color-border, #ddd);
+	text-align: left;
+}
+
+#fa-bills-table thead th,
+#fa-gifts-table thead th {
+	font-weight: bold;
+	background: var(--color-background-dark, #f5f5f5);
+}
+
+#fa-chart-container {
+	background: var(--color-background-dark, #f5f5f5);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.fa-invoice-link {
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+#fa-gift-msg,
+#fa-fq-msg {
+	margin-left: 8px;
+	font-weight: bold;
+}
