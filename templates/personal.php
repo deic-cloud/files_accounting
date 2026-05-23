@@ -69,6 +69,41 @@ $currency         = $_['currency'];
 </table>
 <?php endif; ?>
 
+<?php if (!empty($memberGroups)): ?>
+<hr>
+<h3><?php p($l->t('Group usage')); ?></h3>
+<table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+<?php foreach ($memberGroups as $mg):
+	$usedHuman  = \OCP\Util::humanFileSize((int)$mg['storage_used']);
+	$grantHuman = $mg['storage_grant'];
+	$pct        = (int)$mg['used_pct'];
+?>
+<tr>
+	<td style="padding:4px 8px 4px 0; width:160px;"><?php p($mg['gid']); ?></td>
+	<td style="padding:4px 0;">
+		<strong><?php p($usedHuman); ?></strong> <?php p($l->t('of')); ?> <?php p($grantHuman); ?>
+		<div style="height:6px; background:var(--color-border); border-radius:3px; margin-top:4px;">
+			<div style="height:6px; width:<?php p($pct); ?>%; background:var(--color-primary); border-radius:3px;"></div>
+		</div>
+	</td>
+</tr>
+<?php endforeach; ?>
+</table>
+<?php endif; ?>
+
+<?php if (!empty($ownerGrants)): ?>
+<hr>
+<h3><?php p($l->t('Total usage of owned groups')); ?></h3>
+<table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+<?php foreach ($ownerGrants as $og): ?>
+<tr>
+	<td style="padding:4px 8px 4px 0; width:160px;"><?php p($og['gid']); ?></td>
+	<td style="padding:4px 0;"><strong><?php p(\OCP\Util::humanFileSize((int)$og['total_used'])); ?></strong></td>
+</tr>
+<?php endforeach; ?>
+</table>
+<?php endif; ?>
+
 <?php if (!empty($gifts)): ?>
 <h3><?php p($l->t('Storage grants')); ?></h3>
 <table style="width:100%; border-collapse:collapse;">

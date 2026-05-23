@@ -40,7 +40,7 @@ class InvoiceService {
 	): ?string {
 		$user     = $this->userManager->get($userId);
 		$realName = $user ? $user->getDisplayName() : $userId;
-		$email    = $user ? $user->getEMailAddress() : '';
+		$email    = $user ? ($user->getEMailAddress() ?? '') : '';
 
 		$fromEmail   = $this->storage->getIssuerEmail();
 		$fromAddress = $this->storage->getIssuerAddress();

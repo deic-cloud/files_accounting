@@ -58,6 +58,16 @@ class Stats extends TimedJob {
 		// Log daily usage on this node (for users whose files live here)
 		$this->storageService->logDailyUsage($userId);
 
+		// Update per-member storage_used for any groups this user belongs to
+		$memberGroups = $this->storageService->getUserMemberGroups($userId);
+		if (!empty($memberGroups)) {
+			$currentUsage = $this->storageService->getLocalUsage($userId);
+			$usedBytes    = $currentUsage['files_usage'] + $currentUsage['trash_usage'];
+			foreach ($memberGroups as $group) {
+				$this->storageService->updateMemberUsage($group['gid'], $userId, $usedBytes);
+			}
+		}
+
 		// Only run billing on master
 		if (!$this->storageService->isMaster()) {
 			return;
@@ -126,7 +136,7 @@ class Stats extends TimedJob {
 		$grantArticles = [];
 		$grants = $this->storageService->getOwnedStorageGrants($userId);
 		foreach ($grants as $grant) {
-			$grantUsageBytes = $this->storageService->getStorageGrantUsage($grant['gid']);
+			$grantUsageBytes = $this->storageService->getStorageGrantUsage($grant['gid'], $year, $month);
 			$grantUsageGb    = round($grantUsageBytes / (1024 ** 3), 3);
 			$charge          = round($grantUsageGb * $chargePerGb, 2);
 			if ($charge > 0.0 || $grantUsageGb > 0) {

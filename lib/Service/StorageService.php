@@ -79,6 +79,14 @@ class StorageService {
 		return $this->getUserAccountingDir($userId) . '/bills';
 	}
 
+	public function getGroupAccountingDir(string $gid): string {
+		return $this->getDataDir() . '/__groups/' . $gid . '/files_accounting';
+	}
+
+	public function getGrantUsageFilePath(string $gid, int $year): string {
+		return $this->getGroupAccountingDir($gid) . '/usage-' . $year . '.txt';
+	}
+
 	public function getPodsUsageFilePath(string $userId, int $year, int $month): string {
 		return $this->getUserAccountingDir($userId) . '/pods/podsusage_' . $year . '_' . $month . '.txt';
 	}
@@ -134,24 +142,135 @@ class StorageService {
 	}
 
 	// -------------------------------------------------------------------------
-	// Storage grant (group) usage
-	// TODO: once user_group_admin defines a shared folder structure per grant,
-	// query the filecache for that path. For now returns 0.
+	// Storage grant (group) usage — flat file per group, same format as user usage
 	// -------------------------------------------------------------------------
 
-	public function getStorageGrantUsage(string $gid): int {
-		return 0;
+	public function getStorageGrantUsage(string $gid, int $year, int $month): int {
+		$path = $this->getGrantUsageFilePath($gid, $year);
+		if (!file_exists($path)) {
+			return 0;
+		}
+		$todayDay  = (int)date('j');
+		$prevMonth = $month === 1 ? 12 : $month - 1;
+		$total     = 0;
+		$count     = 0;
+		foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+			$row = explode(' ', trim($line));
+			if (count($row) < 6 || $row[0] !== $gid) {
+				continue;
+			}
+			[$g, $y, $m, $d, , $bytes] = $row;
+			$rowYear = (int)$y; $rowMonth = (int)$m; $rowDay = (int)$d;
+			if ($rowYear === $year && (
+				($rowMonth === $month && $rowDay < $todayDay) ||
+				($rowMonth === $prevMonth && $rowDay >= $todayDay)
+			)) {
+				$total += (int)$bytes;
+				$count++;
+			}
+		}
+		return $count > 0 ? (int)($total / $count) : 0;
+	}
+
+	public function logGrantUsage(string $gid, int $bytes, bool $overwrite = false): void {
+		$timestamp = time();
+		$year  = (int)date('Y', $timestamp);
+		$month = (int)date('n', $timestamp);
+		$day   = (int)date('j', $timestamp);
+		$time  = date('H:i:s', $timestamp);
+		$dir   = $this->getGroupAccountingDir($gid);
+		$this->ensureDir($dir);
+		$path = $this->getGrantUsageFilePath($gid, $year);
+		if (!file_exists($path)) {
+			touch($path);
+		}
+		$lines    = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+		$lastLine = !empty($lines) ? end($lines) : '';
+		if ($lastLine !== '') {
+			$parts = explode(' ', $lastLine);
+			if (count($parts) >= 4 && $parts[0] === $gid
+				&& (int)$parts[1] === $year && (int)$parts[2] === $month && (int)$parts[3] === $day
+			) {
+				if (!$overwrite) {
+					return;
+				}
+				$lines = array_slice($lines, 0, -1);
+				file_put_contents($path, implode("\n", $lines) . (count($lines) ? "\n" : ''), LOCK_EX);
+			}
+		}
+		$line = implode(' ', [$gid, $year, $month, $day, $time, $bytes]) . "\n";
+		file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
+	}
+
+	/** Groups the user is an accepted member of that have a storage_grant set. */
+	public function getUserMemberGroups(string $userId): array {
+		if (!$this->db->tableExists('uga_groups') || !$this->db->tableExists('uga_group_members')) {
+			return [];
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('g.gid', 'g.storage_grant', 'm.storage_used')
+				->from('uga_groups', 'g')
+				->innerJoin('g', 'uga_group_members', 'm', $qb->expr()->eq('g.gid', 'm.gid'))
+				->where($qb->expr()->eq('m.uid', $qb->createNamedParameter($userId)))
+				->andWhere($qb->expr()->eq('m.status', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->neq('g.storage_grant', $qb->createNamedParameter('')));
+			$cursor = $qb->executeQuery();
+			$rows   = $cursor->fetchAll();
+			$cursor->closeCursor();
+			return $rows;
+		} catch (\Throwable $e) {
+			$this->logger->debug('files_accounting: getUserMemberGroups failed: ' . $e->getMessage());
+			return [];
+		}
+	}
+
+	/** Sum of storage_used across all accepted members of a group. */
+	public function getGroupTotalUsage(string $gid): int {
+		if (!$this->db->tableExists('uga_group_members')) {
+			return 0;
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select($qb->func()->sum('storage_used'))
+				->from('uga_group_members')
+				->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)))
+				->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)));
+			$cursor = $qb->executeQuery();
+			$val    = $cursor->fetchOne();
+			$cursor->closeCursor();
+			return (int)$val;
+		} catch (\Throwable $e) {
+			return 0;
+		}
+	}
+
+	/** Update per-member storage_used in uga_group_members. */
+	public function updateMemberUsage(string $gid, string $userId, int $bytes): void {
+		if (!$this->db->tableExists('uga_group_members')) {
+			return;
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update('uga_group_members')
+				->set('storage_used', $qb->createNamedParameter($bytes, IQueryBuilder::PARAM_INT))
+				->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)))
+				->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($userId)));
+			$qb->executeStatement();
+		} catch (\Throwable $e) {
+			$this->logger->debug('files_accounting: updateMemberUsage failed: ' . $e->getMessage());
+		}
 	}
 
 	/** Returns groups owned by $userId that have a storage_grant set. */
 	public function getOwnedStorageGrants(string $userId): array {
-		if (!$this->db->tableExists('user_group_admin_groups')) {
+		if (!$this->db->tableExists('uga_groups')) {
 			return [];
 		}
 		try {
 			$qb = $this->db->getQueryBuilder();
 			$qb->select('gid', 'storage_grant')
-				->from('user_group_admin_groups')
+				->from('uga_groups')
 				->where($qb->expr()->eq('owner', $qb->createNamedParameter($userId)))
 				->andWhere($qb->expr()->neq('storage_grant', $qb->createNamedParameter('')));
 			$cursor = $qb->executeQuery();
