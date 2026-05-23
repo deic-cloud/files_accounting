@@ -1,6 +1,4 @@
-# files_accounting
-
-Storage accounting, invoicing, and billing API for Nextcloud 34 (ScienceData).
+# files_accounting - Accounting of storage usage, monthly invoices, gift codes
 
 ## Overview
 
