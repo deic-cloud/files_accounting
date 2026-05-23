@@ -30,5 +30,6 @@ return [
 		['name' => 'Internal#setPrepaid',          'url' => '/internal/prepaid',             'verb' => 'POST'],
 		['name' => 'Internal#expireGifts',         'url' => '/internal/expiregifts',         'verb' => 'POST'],
 		['name' => 'Internal#redeemGift',          'url' => '/internal/redeemgift',          'verb' => 'POST'],
+		['name' => 'Internal#createGift',          'url' => '/internal/creategift',          'verb' => 'POST'],
 	],
 ];

@@ -7,6 +7,9 @@ $bills     = $_['bills'];
 $gifts     = $_['gifts'];
 $freequota        = $_['freequota'];
 $defaultFreequota = $_['defaultFreequota'];
+$effectiveFree    = $_['effectiveFree'];
+$usedBytes        = (int)$_['usedBytes'];
+$usedPct          = (int)$_['usedPct'];
 $currency         = $_['currency'];
 ?>
 <div id="files-accounting-personal" class="section">
@@ -22,6 +25,20 @@ $currency         = $_['currency'];
 	<?php endif; ?>
 <?php endif; ?>
 </p>
+
+<?php if ($effectiveFree && $effectiveFree !== '0'): ?>
+<div style="margin-bottom:12px;">
+	<div style="margin-bottom:4px;">
+		<strong><?php p(\OCP\Util::humanFileSize($usedBytes)); ?></strong>
+		<?php p($l->t('used of free tier')); ?>
+		(<strong><?php p($effectiveFree); ?></strong>)
+		— <?php p($usedPct); ?>%
+	</div>
+	<div style="height:8px; background:var(--color-border); border-radius:4px;">
+		<div style="height:8px; width:<?php p($usedPct); ?>%; background:<?php echo $usedPct > 90 ? 'var(--color-error)' : ($usedPct > 75 ? 'var(--color-warning)' : 'var(--color-primary)'); ?>; border-radius:4px; transition:width .3s;"></div>
+	</div>
+</div>
+<?php endif; ?>
 
 <div style="margin-bottom:8px;">
 	<label for="fa-year-select"><?php p($l->t('Year')); ?>:</label>

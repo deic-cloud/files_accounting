@@ -153,4 +153,20 @@ class InternalController extends Controller {
 		$result = $this->storageService->redeemGift($code, $userId);
 		return new JSONResponse($result);
 	}
+
+	#[PublicPage]
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	public function createGift(): JSONResponse {
+		if (!$this->checkSecret()) {
+			return $this->unauthorized();
+		}
+		$amount       = (float)$this->request->getParam('amount', 0);
+		$size         = (string)$this->request->getParam('size', '');
+		$days         = (int)$this->request->getParam('days', 0);
+		$site         = (string)$this->request->getParam('site', '');
+		$claimExpires = (int)$this->request->getParam('claim_expires_days', 0);
+		$code = $this->storageService->createGift($amount, $size, $days, $site, $claimExpires);
+		return new JSONResponse(['code' => $code]);
+	}
 }

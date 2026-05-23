@@ -155,7 +155,12 @@ class ApiController extends OCSController {
 		$days         = (int)$this->request->getParam('days', 0);
 		$site         = (string)$this->request->getParam('site', '');
 		$claimExpires = (int)$this->request->getParam('claim_expires_days', 0);
-		$code = $this->storageService->createGift($amount, $size, $days, $site, $claimExpires);
+		// Always store on master so any silo can redeem
+		if (!$this->storageService->isMaster()) {
+			$code = $this->storageService->createGiftViaMaster($amount, $size, $days, $site, $claimExpires);
+		} else {
+			$code = $this->storageService->createGift($amount, $size, $days, $site, $claimExpires);
+		}
 		return new DataResponse(['code' => $code]);
 	}
 
@@ -235,6 +240,11 @@ class ApiController extends OCSController {
 		if ($uid === '' || $code === '') {
 			return new DataResponse(['error' => 'code required'], Http::STATUS_BAD_REQUEST);
 		}
-		return new DataResponse($this->storageService->redeemGift($code, $uid));
+		$result = $this->storageService->redeemGift($code, $uid);
+		// If not found locally and we're not master, try master (canonical gift store)
+		if (!($result['success'] ?? false) && !$this->storageService->isMaster()) {
+			$result = $this->storageService->redeemGiftViaMaster($code, $uid);
+		}
+		return new DataResponse($result);
 	}
 }

@@ -35,7 +35,7 @@ $gifts            = $_['gifts'];
 
 <h3><?php p($l->t('Gift codes')); ?></h3>
 <div style="margin-bottom:12px;">
-	<label><?php p($l->t('Storage size')); ?>: <input id="fa-gift-size" type="text" placeholder="e.g. 10 GB" style="width:80px;"></label>
+	<label><?php p($l->t('Storage size')); ?>: <input id="fa-gift-size" type="text" placeholder="e.g. 10 GB" style="width:120px;"></label>
 	<label><?php p($l->t('Days')); ?>: <input id="fa-gift-days" type="number" value="365" style="width:60px;"></label>
 	<label><?php p($l->t('Claim expires (days, 0=never)')); ?>: <input id="fa-gift-expires" type="number" value="0" style="width:60px;"></label>
 	<button id="fa-create-gift"><?php p($l->t('Create gift code')); ?></button>

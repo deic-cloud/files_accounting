@@ -627,6 +627,34 @@ class StorageService {
 		return $qb->executeStatement() > 0;
 	}
 
+	public function createGiftViaMaster(float $amount, string $size, int $days, string $site, int $claimExpiresDays): string {
+		$masterUrl = rtrim((string)$this->config->getSystemValue('files_sharding_master_url', ''), '/');
+		if ($masterUrl === '' || $this->interServer === null) {
+			return $this->createGift($amount, $size, $days, $site, $claimExpiresDays);
+		}
+		$result = $this->interServer->postDirect(
+			$masterUrl, 'internal/creategift',
+			['amount' => $amount, 'size' => $size, 'days' => $days, 'site' => $site, 'claim_expires_days' => $claimExpiresDays],
+			'files_accounting'
+		);
+		return (string)($result['code'] ?? $this->createGift($amount, $size, $days, $site, $claimExpiresDays));
+	}
+
+	public function redeemGiftViaMaster(string $code, string $userId): array {
+		$masterUrl = rtrim((string)$this->config->getSystemValue('files_sharding_master_url', ''), '/');
+		if ($masterUrl === '' || $this->interServer === null) {
+			return ['success' => false, 'message' => 'Invalid gift code'];
+		}
+		$result = $this->interServer->postDirect(
+			$masterUrl, 'internal/redeemgift',
+			['code' => $code, 'userid' => $userId], 'files_accounting'
+		);
+		if (!is_array($result)) {
+			return ['success' => false, 'message' => 'Invalid gift code'];
+		}
+		return $result;
+	}
+
 	public function redeemGift(string $code, string $userId): array {
 		$gifts = $this->getGifts($code);
 		if (empty($gifts)) {

@@ -194,6 +194,9 @@ class Stats extends TimedJob {
 		$siteName = $server?->getSite() ?: (string)$this->config->getSystemValue('url', '');
 		$articles = [];
 		$articles[] = ['item' => ($homeGb + $trashGb) . " GB storage, $monthName $year at $siteName", 'price' => $homeDue];
+		if ($freeBytes > 0) {
+			$articles[] = ['item' => 'Free tier: ' . $freeQuota, 'price' => 0.0];
+		}
 		foreach ($grantArticles as $a) {
 			$articles[] = $a;
 		}

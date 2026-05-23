@@ -25,6 +25,12 @@ class PersonalSettings implements ISettings {
 
 		$userFreequota    = $uid !== '' ? $this->storageService->getUserFreequota($uid) : '';
 		$defaultFreequota = $this->storageService->getDefaultFreeQuota();
+		$effectiveFree    = ($userFreequota && $userFreequota !== '0') ? $userFreequota : $defaultFreequota;
+		$freeBytes        = $this->storageService->parseQuotaToBytes($effectiveFree);
+
+		$currentUsage  = $uid !== '' ? $this->storageService->getLocalUsage($uid) : ['files_usage' => 0, 'trash_usage' => 0];
+		$usedBytes     = $currentUsage['files_usage'] + $currentUsage['trash_usage'];
+		$usedPct       = ($freeBytes > 0) ? min(100, (int)round($usedBytes / $freeBytes * 100)) : 0;
 
 		// Group storage grant sections
 		$memberGroups = $uid !== '' ? $this->storageService->getUserMemberGroups($uid) : [];
@@ -51,6 +57,9 @@ class PersonalSettings implements ISettings {
 			'gifts'            => $gifts,
 			'freequota'        => $userFreequota,
 			'defaultFreequota' => $defaultFreequota,
+			'effectiveFree'    => $effectiveFree,
+			'usedBytes'        => $usedBytes,
+			'usedPct'          => $usedPct,
 			'currency'         => $this->storageService->getBillingCurrency(),
 			'memberGroups'     => $memberGroups,
 			'ownerGrants'      => $ownerGrants,
