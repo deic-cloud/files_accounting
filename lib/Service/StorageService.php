@@ -116,6 +116,17 @@ class StorageService {
 		$cursor->closeCursor();
 		$filesUsage = $row ? max(0, (int)$row['size']) : 0;
 
+		// Subtract grant folder sizes — grant storage is billed to the group owner,
+		// not to the member, so it must not count against the member's personal usage.
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('size')->from('filecache')
+			->where($qb->expr()->eq('storage', $qb->createNamedParameter($numericId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('path', $qb->createNamedParameter('files/.uga_grants')));
+		$cursor = $qb->executeQuery();
+		$row = $cursor->fetch();
+		$cursor->closeCursor();
+		$filesUsage = max(0, $filesUsage - ($row ? max(0, (int)$row['size']) : 0));
+
 		$trashUsage = 0;
 		if ($includeTrash) {
 			$qb = $this->db->getQueryBuilder();
