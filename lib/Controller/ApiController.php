@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\FilesAccounting\Controller;
 
 use OCA\FilesAccounting\Service\InvoiceService;
+use OCA\FilesAccounting\Service\StatisticsService;
 use OCA\FilesAccounting\Service\StorageService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -21,11 +22,12 @@ class ApiController extends OCSController {
 	public function __construct(
 		string                  $appName,
 		IRequest                $request,
-		private StorageService  $storageService,
-		private InvoiceService  $invoiceService,
-		private IUserSession    $userSession,
-		private IGroupManager   $groupManager,
-		private IConfig         $config,
+		private StorageService    $storageService,
+		private InvoiceService    $invoiceService,
+		private StatisticsService $statisticsService,
+		private IUserSession      $userSession,
+		private IGroupManager     $groupManager,
+		private IConfig           $config,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -72,6 +74,22 @@ class ApiController extends OCSController {
 		$status = $this->request->getParam('status');
 		$bills  = $this->storageService->getBills($userId, $year, $status);
 		return new DataResponse($bills);
+	}
+
+	/**
+	 * Aggregate statistics for the admin dashboard: monthly usage/billing summary,
+	 * top users by storage, and collaboration metrics. Admin only.
+	 */
+	public function getStatistics(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$year = $this->request->getParam('year') !== null ? (int)$this->request->getParam('year') : null;
+		return new DataResponse([
+			'summary'       => $this->statisticsService->usageSummaryByMonth($year),
+			'topUsers'      => $this->statisticsService->topUsersByUsage(10),
+			'collaboration' => $this->statisticsService->collaborationMetrics(),
+		]);
 	}
 
 	public function getUsage(): DataResponse {

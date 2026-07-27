@@ -8,6 +8,7 @@ return [
 		['name' => 'Api#getBills',       'url' => '/api/v1/bills',         'verb' => 'GET'],
 		['name' => 'Api#getInvoice',     'url' => '/api/v1/invoice',       'verb' => 'GET'],
 		['name' => 'Api#getUsage',       'url' => '/api/v1/usage',         'verb' => 'GET'],
+		['name' => 'Api#getStatistics',  'url' => '/api/v1/statistics',    'verb' => 'GET'],
 		['name' => 'Api#setFreeQuota',   'url' => '/api/v1/freequota',     'verb' => 'POST'],
 		['name' => 'Api#getFreeQuota',   'url' => '/api/v1/freequota',     'verb' => 'GET'],
 		['name' => 'Api#listGifts',      'url' => '/api/v1/gifts',         'verb' => 'GET'],
