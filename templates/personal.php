@@ -68,12 +68,20 @@ $currency         = $_['currency'];
 		</tr>
 	</thead>
 	<tbody>
-	<?php foreach ($bills as $bill): ?>
-		<tr>
+	<?php foreach ($bills as $bill):
+		$isPaid    = ($bill['status'] === 'paid');
+		$isOverdue = !$isPaid && (int)$bill['time_due'] > 0 && (int)$bill['time_due'] < time();
+		// Solid status pills (green/amber/red, white text) — deliberately not the
+		// pale NC theme tints, so an unpaid bill stands out in the history.
+		if ($isPaid)          { $pillBg = '#2d7d46'; $pillLabel = $l->t('Paid'); }
+		elseif ($isOverdue)   { $pillBg = '#c9302c'; $pillLabel = $l->t('Overdue'); }
+		else                  { $pillBg = '#d98c00'; $pillLabel = $l->t('Pending'); }
+	?>
+		<tr<?php if (!$isPaid) echo ' style="background:var(--color-background-hover)"'; ?>>
 			<td><?php p(date('F', mktime(0,0,0,(int)$bill['month'],1)) . ' ' . $bill['year']); ?></td>
 			<td><?php p(round((float)$bill['home_files_usage'] + (float)$bill['home_trash_usage'], 2)); ?></td>
 			<td><?php p(number_format((float)$bill['amount_due'], 2) . ' ' . $currency); ?></td>
-			<td><?php p($bill['status']); ?></td>
+			<td><span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;background:<?php p($pillBg); ?>"><?php p($pillLabel); ?></span></td>
 			<td><?php p($bill['time_due'] ? date('Y-m-d', (int)$bill['time_due']) : ''); ?></td>
 			<td>
 				<?php if (!empty($bill['reference_id'])): ?>

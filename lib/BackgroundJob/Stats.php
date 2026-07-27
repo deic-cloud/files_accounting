@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\FilesAccounting\BackgroundJob;
 
 use OCA\FilesAccounting\Service\InvoiceService;
+use OCA\FilesAccounting\Service\NotificationService;
 use OCA\FilesAccounting\Service\StorageService;
 use OCA\FilesSharding\Service\ShardingService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -20,6 +21,7 @@ class Stats extends TimedJob {
 		ITimeFactory                $time,
 		private StorageService      $storageService,
 		private InvoiceService      $invoiceService,
+		private NotificationService $notificationService,
 		private IUserManager        $userManager,
 		private IConfig             $config,
 		private LoggerInterface     $logger,
@@ -231,8 +233,33 @@ class Stats extends TimedJob {
 		}
 
 		if (!$dryRun) {
-			$this->invoiceService->sendInvoiceEmail($userId, $filename, $totalDue);
+			if ($totalDue > 0.0) {
+				// Unpaid bill: raise a persistent in-app notification that stays in
+				// the bell dropdown until the bill is paid. Email is the fallback,
+				// not the default — active users get the UI notification alone;
+				// inactive users also get the invoice by mail (they're unlikely to
+				// be over quota anyway, but shouldn't miss a real bill).
+				$this->notificationService->notifyUnpaidBill(
+					$userId, $year, $month, $totalDue, $this->storageService->getBillingCurrency()
+				);
+				if (!$this->isUserActive($userId)) {
+					$this->invoiceService->sendInvoiceEmail($userId, $filename, $totalDue);
+				}
+			} else {
+				// Settled (0 due): clear any stale unpaid notification for this period.
+				$this->notificationService->dismissBillNotification($userId, $year, $month);
+			}
 		}
+	}
+
+	/** Active = logged in within roughly the last billing cycle (~35 days). */
+	private function isUserActive(string $userId): bool {
+		$user = $this->userManager->get($userId);
+		if ($user === null) {
+			return false;
+		}
+		$lastLogin = $user->getLastLogin();
+		return $lastLogin > 0 && $lastLogin >= (time() - 35 * 24 * 3600);
 	}
 
 	private function getPodsMonthlyUse(string $userId, int $year, int $month): array {
