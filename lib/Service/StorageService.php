@@ -59,6 +59,11 @@ class StorageService {
 		return (float)$this->config->getSystemValue('charge_per_gb', 0.0);
 	}
 
+	/** Months a bill may stay pending before the admin is emailed (see BILLING.md §6). */
+	public function getAdminAlertMonths(): int {
+		return (int)$this->config->getSystemValue('billing_admin_alert_months', 3);
+	}
+
 	// -------------------------------------------------------------------------
 	// File paths for usage logs and invoices
 	// -------------------------------------------------------------------------
@@ -577,6 +582,39 @@ class StorageService {
 			->set('status', $qb->createNamedParameter($status))
 			->where($qb->expr()->eq('reference_id', $qb->createNamedParameter($referenceId)));
 		return $qb->executeStatement() > 0;
+	}
+
+	/**
+	 * Pending bills issued before $issuedBefore that haven't yet triggered an admin
+	 * alert. Used by the escalation scan; the admin_alerted flag makes it fire once
+	 * per bill rather than on every run.
+	 */
+	public function getPendingBillsForAdminAlert(int $issuedBefore): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('files_accounting')
+			->where($qb->expr()->eq('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PENDING)))
+			->andWhere($qb->expr()->eq('admin_alerted', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gt('amount_due', $qb->createNamedParameter(0)))
+			->andWhere($qb->expr()->lt('timestamp', $qb->createNamedParameter($issuedBefore, IQueryBuilder::PARAM_INT)))
+			->orderBy('timestamp', 'ASC');
+		$cursor = $qb->executeQuery();
+		$rows = $cursor->fetchAll();
+		$cursor->closeCursor();
+		return $rows;
+	}
+
+	/** Mark bills (by id) as having triggered their admin alert, so they don't re-fire. */
+	public function markBillsAdminAlerted(array $ids): void {
+		if (empty($ids)) {
+			return;
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('files_accounting')
+			->set('admin_alerted', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->in('id', $qb->createNamedParameter(
+				array_map('intval', $ids), IQueryBuilder::PARAM_INT_ARRAY
+			)));
+		$qb->executeStatement();
 	}
 
 	public function getAccountedYears(string $userId): array {

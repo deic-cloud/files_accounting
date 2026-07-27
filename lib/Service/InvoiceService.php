@@ -170,4 +170,48 @@ class InvoiceService {
 			$this->logger->error("files_accounting: failed to send invoice email to $email: " . $e->getMessage());
 		}
 	}
+
+	/**
+	 * Email the platform admin (the issuer address) a summary of bills that have been
+	 * pending longer than $months. One digest email, not one per bill.
+	 *
+	 * @param array $bills  files_accounting rows (user, year, month, amount_due, timestamp, ...)
+	 */
+	public function sendAdminOverdueAlert(array $bills, int $months): void {
+		if (empty($bills)) {
+			return;
+		}
+		$admin = $this->storage->getIssuerEmail();
+		if ($admin === '') {
+			$this->logger->warning('files_accounting: ' . count($bills) . ' bills pending >' . $months
+				. ' months but no issuer email (fromemail) configured — cannot alert admin');
+			return;
+		}
+
+		$currency = $this->storage->getBillingCurrency();
+		$lines = [];
+		foreach ($bills as $b) {
+			$period  = date('F Y', (int)mktime(0, 0, 0, (int)$b['month'], 1, (int)$b['year']));
+			$days    = (int)floor((time() - (int)$b['timestamp']) / 86400);
+			$lines[] = sprintf('  %-24s %-16s %10s %s   (%d days pending)',
+				$b['user'], $period, number_format((float)$b['amount_due'], 2), $currency, $days);
+		}
+
+		try {
+			$message = $this->mailer->createMessage();
+			$message->setTo([$admin]);
+			if ($admin !== '') {
+				$message->setFrom([$admin => $this->storage->getIssuerAddress() ?: 'ScienceData']);
+			}
+			$message->setSubject('ScienceData: ' . count($bills) . ' storage bill(s) pending over ' . $months . ' months');
+			$message->setPlainBody(
+				count($bills) . " storage invoice(s) have been pending payment for more than $months months:\n\n"
+				. implode("\n", $lines)
+				. "\n\nEach bill is reported once. Mark bills paid in Storage Accounting admin settings.\n"
+			);
+			$this->mailer->send($message);
+		} catch (\Throwable $e) {
+			$this->logger->error('files_accounting: failed to send admin overdue alert: ' . $e->getMessage());
+		}
+	}
 }

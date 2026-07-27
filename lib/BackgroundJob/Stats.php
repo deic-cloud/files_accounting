@@ -46,6 +46,33 @@ class Stats extends TimedJob {
 				$this->logger->error("files_accounting: error processing $userId: " . $e->getMessage());
 			}
 		}
+
+		if (!$dryRun) {
+			$this->runAdminOverdueAlerts();
+		}
+	}
+
+	/**
+	 * Email the admin about bills pending longer than the configured threshold
+	 * (default 3 months). Master-only (the bills table is central there) and each
+	 * bill is reported once — the admin_alerted flag makes repeated runs idempotent.
+	 */
+	private function runAdminOverdueAlerts(): void {
+		if (!$this->storageService->isMaster()) {
+			return;
+		}
+		$months = $this->storageService->getAdminAlertMonths();
+		if ($months <= 0) {
+			return;
+		}
+		$cutoff = time() - $months * 30 * 24 * 3600;
+		$bills  = $this->storageService->getPendingBillsForAdminAlert($cutoff);
+		if (empty($bills)) {
+			return;
+		}
+		$this->invoiceService->sendAdminOverdueAlert($bills, $months);
+		$this->storageService->markBillsAdminAlerted(array_column($bills, 'id'));
+		$this->logger->info('files_accounting: admin alerted about ' . count($bills) . " bill(s) pending >$months months");
 	}
 
 	private function getAllUserIds(): array {
