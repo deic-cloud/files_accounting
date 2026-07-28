@@ -17,64 +17,72 @@ The institution's identity and credentials live with the institution via
 SAML/WAYF/eduGAIN — we never hold their user accounts. Our only link is: their
 nominated UID owns their domain group.
 
-## 2. Quota model — two layers, one number
+## 2. Sponsorship model — baseline + two institutional options
 
-Every user has an **effective free quota** that is the sum of:
+We (the platform) sponsor a **baseline** free quota `B` on every user's own home
+directory (config: default `freequota`; free to everyone, we absorb it). A
+university — represented by the **owner** of its domain group (e.g. `dtu.dk`) —
+can sponsor *additional* storage for its users via **either or both** of two
+independent mechanisms. This is deliberate flexibility: each university has its
+own agreement with its users.
+
+### Option A — grant folder (owner-controlled storage)
+
+A separate, group-**owner-controlled** folder that appears inside each member's
+files tree at `.uga_grants/{gid}/` (implemented in `user_group_admin`). The owner
+retains control of the data even after a member leaves — for universities (or
+research-group leaders) that want to *own* the storage they provide.
+
+- **Deliberately NOT a sync target** — kept out of the desktop sync client on
+  purpose, to keep the "owner-controlled storage" narrative consistent. Not a
+  fragility workaround; a design choice.
+- **Billed to the group owner.** The billing job already charges grant-folder
+  usage to the owner (`getOwnedStorageGrants` + `getStorageGrantUsage`). Size is
+  `uga_groups.storage_grant` (per member) / `storage_grant_total` (committed pool).
+- A research-group owner's grant may in turn be covered by *his* university's
+  sponsorship; overflow is handled case-by-case.
+
+### Option B — home-directory quota top-up
+
+The university buys extra free quota on its users' **standard home directories** —
+for universities that just want to offer a OneDrive alternative and don't care to
+control the data. The user keeps using their ordinary, sync-safe home; only the
+free-tier number grows.
 
 ```
-effective_free_quota(user) =
-      B                      (platform baseline — we provide, free to all)
-    + T(domain of user)      (institutional top-up — the user's university provides)
-    + individual_adjustment  (optional per-user override by admin)
-    + active_gift_credit     (time-limited gift codes, while valid)
+effective_home_free(user) =
+      B                    (platform baseline — we sponsor)
+    + individual override  (optional per-user admin override of B)
+    + Σ topup(user's groups)   (institutional top-up — the university sponsors)
 ```
 
-- **`B` — platform baseline.** The existing default free quota (config: default
-  `freequota`). Free to everyone; we absorb the cost.
-- **`T` — institutional top-up, per user, per domain.** Extra free quota a
-  university grants *each* of its users. Stored per group. Universities may want
-  predictability, but nobody can predict usage — so the only levers we offer them
-  are (a) adjust `T`, and (b) optionally stop new signups on their domain
-  (§8). `T` is **per user**, not a shared domain pool.
+- Stored per group in **files_accounting** (`files_accounting_topup`), separate
+  from `storage_grant` (Option A) so a university can offer either or both.
+- **The user sees one figure** — their effective home free quota — and needn't
+  know the split between what we and their university sponsor.
 
-**The user sees a single figure** — their effective free quota. They are never
-shown, and need not care, that it is a sum of what we provide and what their
-institution pays for.
+## 3. Enforcement — billing threshold now; hard stop later
 
-## 3. Enforcement — hard stop, never deletion
+For now the effective free quota is a **billing threshold** (the no-charge line),
+not a hard storage cap. A Sabre quota-enforcement plugin (refusing writes past the
+ceiling, reporting it over WebDAV) is a **separate, later** piece — kept out of
+this pass for stability.
 
-The bundled Sabre `QuotaPlugin` reports the effective free quota as the WebDAV
-`quota-available-bytes` / `quota-used-bytes`, so all clients (incl. the desktop
-sync client) see it as the ceiling. Writes that would exceed `B + T` are
-**refused** (hard stop).
-
-**We never automatically delete user data.** A user over quota simply cannot add
-more until usage drops or `T` is raised. No purge job, ever.
-
-Because usage is capped at `B + T`, a user's billable-above-baseline usage is by
-construction `≤ T` — the institutional cap is enforced implicitly, no separate
-cap logic needed in the billing math.
+**We never automatically delete user data** under any design.
 
 ## 4. Charging — metered, above baseline
 
-Charging is **metered on actual usage above the platform baseline**, at
-`charge_per_gb` per GB-month (existing config). Usage below `B` is never charged.
+Charging is **metered on actual usage above the platform baseline `B`**, at
+`charge_per_gb` per GB-month. Usage below `B` is never charged.
 
-For each user in a billing period:
-
-```
-billable(user) = max(0, avg_usage(user) - B)        # in GB
-charge(user)   = billable(user) * charge_per_gb      # capped at T by §3 enforcement
-```
-
-**Who pays** depends on whether the user's domain has a billing arrangement:
-
-- **Domain-covered user** (their domain group has an owner / billing arrangement):
-  `charge(user)` rolls up into the **institution's** bill. The user's own bill is
-  0 / absorbed. This is the normal case for university users.
-- **Uncovered user** (no institution behind them): billed **personally** (the
-  existing per-user path). This covers standalone users. In practice almost always
-  0 DKK because they stay under `B`.
+- **Option B (home top-up):** the **university** (group owner) is billed for its
+  members' home usage in the sponsored band — above `B`, capped at the per-member
+  top-up. Because each member's *effective* free already includes the top-up, the
+  member's **own** bill covers only usage beyond `B + topup` (0 while within it),
+  so there is no double-counting. Folded into the owner's monthly bill as line
+  items, alongside Option A grant charges.
+- **Uncovered user** (no institutional sponsorship): billed **personally** on
+  usage above their baseline. Almost always 0 (they stay under `B`).
 
 ## 5. Invoices & statuses
 

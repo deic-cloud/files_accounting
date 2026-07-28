@@ -140,8 +140,12 @@ class Stats extends TimedJob {
 		}
 
 		$chargePerGb = $this->storageService->getChargePerGb();
-		$freeQuota   = $this->storageService->getFreeQuota($userId);
-		$freeBytes   = $this->storageService->parseQuotaToBytes($freeQuota);
+		// Effective free quota = platform baseline + institutional top-up (BILLING.md
+		// Option B). A member covered by a university top-up therefore has a higher
+		// free tier, so their own bill below naturally drops to 0 in the sponsored
+		// band; the university is billed for that band separately (owner loop).
+		$freeQuota   = $this->storageService->getEffectiveFreeQuota($userId);
+		$freeBytes   = $this->storageService->getEffectiveFreeBytes($userId);
 
 		$usageAvg = $this->storageService->currentUsageAverage($userId, $year, $month);
 		$homeAvg  = $usageAvg['home'] ?? [];
@@ -171,6 +175,31 @@ class Stats extends TimedJob {
 			if ($charge > 0.0 || $grantUsageGb > 0) {
 				$grantArticles[] = [
 					'item'  => "Storage grant '{$grant['gid']}': {$grantUsageGb} GB, $monthName $year",
+					'price' => $charge,
+				];
+				$grantDue += $charge;
+			}
+		}
+
+		// Home-directory top-up billing (BILLING.md Option B) — the university (group
+		// owner) pays for its members' HOME usage in the sponsored band: above the
+		// platform baseline B, capped at the per-member top-up. Members' own bills are
+		// unaffected — their effective free already includes the top-up (see above), so
+		// no double-counting.
+		$baselineBytes = $this->storageService->getBaselineFreeBytes();
+		foreach ($this->storageService->getOwnedTopupGroups($userId) as $tg) {
+			$topupBytes     = (float)$tg['topup_bytes'];
+			$sponsoredBytes = 0.0;
+			foreach ($this->storageService->getGroupMemberIds((string)$tg['gid']) as $memberUid) {
+				$mu = $this->storageService->currentUsageAverage((string)$memberUid, $year, $month);
+				$homeBytes = (float)($mu['home']['files_usage'] ?? 0) + (float)($mu['home']['trash_usage'] ?? 0);
+				$sponsoredBytes += min($topupBytes, max(0.0, $homeBytes - $baselineBytes));
+			}
+			$sponsoredGb = round($sponsoredBytes / (1024 ** 3), 3);
+			$charge      = round($sponsoredGb * $chargePerGb, 2);
+			if ($charge > 0.0 || $sponsoredGb > 0) {
+				$grantArticles[] = [
+					'item'  => "Home quota top-up for group '{$tg['gid']}': {$sponsoredGb} GB, $monthName $year",
 					'price' => $charge,
 				];
 				$grantDue += $charge;

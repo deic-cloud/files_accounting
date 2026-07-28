@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\FilesAccounting\Controller;
 
 use OCA\FilesAccounting\Service\InvoiceService;
+use OCA\FilesAccounting\Service\NotificationService;
 use OCA\FilesAccounting\Service\StatisticsService;
 use OCA\FilesAccounting\Service\StorageService;
 use OCP\AppFramework\Http;
@@ -22,12 +23,13 @@ class ApiController extends OCSController {
 	public function __construct(
 		string                  $appName,
 		IRequest                $request,
-		private StorageService    $storageService,
-		private InvoiceService    $invoiceService,
-		private StatisticsService $statisticsService,
-		private IUserSession      $userSession,
-		private IGroupManager     $groupManager,
-		private IConfig           $config,
+		private StorageService     $storageService,
+		private InvoiceService     $invoiceService,
+		private StatisticsService  $statisticsService,
+		private NotificationService $notificationService,
+		private IUserSession       $userSession,
+		private IGroupManager      $groupManager,
+		private IConfig            $config,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -90,6 +92,59 @@ class ApiController extends OCSController {
 			'topUsers'      => $this->statisticsService->topUsersByUsage(10),
 			'collaboration' => $this->statisticsService->collaborationMetrics(),
 		]);
+	}
+
+	/**
+	 * Mark bills paid (single or bulk) and clear each user's pending notification.
+	 * Body: {ids: [int,...]} (or a single id). Admin only. Stamps a payment
+	 * reference (default "manual") so the origin is recorded.
+	 */
+	public function markBillsPaid(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$ids = $this->request->getParam('ids');
+		if (!is_array($ids)) {
+			$ids = ($ids !== null && $ids !== '') ? [$ids] : [];
+		}
+		$reference = (string)$this->request->getParam('reference', 'manual');
+		$rows = $this->storageService->markBillsPaid($ids, $reference);
+		foreach ($rows as $r) {
+			$this->notificationService->dismissBillNotification($r['user'], $r['year'], $r['month']);
+		}
+		return new DataResponse(['status' => 'ok', 'paid' => count($rows)]);
+	}
+
+	/** Get a group's home-directory quota top-up (BILLING.md Option B). Admin only. */
+	public function getGroupTopup(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$gid = (string)$this->request->getParam('gid', '');
+		if ($gid === '') {
+			return new DataResponse(['error' => 'gid required'], Http::STATUS_BAD_REQUEST);
+		}
+		$bytes = $this->storageService->getGroupTopup($gid);
+		return new DataResponse([
+			'gid'   => $gid,
+			'bytes' => $bytes,
+			'human' => $bytes > 0 ? \OCP\Util::humanFileSize($bytes) : '0',
+		]);
+	}
+
+	/** Set a group's home-directory quota top-up. Body: {gid, quota}. Admin only. */
+	public function setGroupTopup(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$gid   = (string)$this->request->getParam('gid', '');
+		$quota = (string)$this->request->getParam('quota', '');
+		if ($gid === '') {
+			return new DataResponse(['error' => 'gid required'], Http::STATUS_BAD_REQUEST);
+		}
+		$bytes = $this->storageService->parseQuotaToBytes($quota);
+		$this->storageService->setGroupTopup($gid, $bytes);
+		return new DataResponse(['status' => 'ok', 'gid' => $gid, 'bytes' => $bytes]);
 	}
 
 	public function getUsage(): DataResponse {

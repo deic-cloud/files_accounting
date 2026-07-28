@@ -15,6 +15,11 @@ class AdminSettings implements ISettings {
 	}
 
 	public function getForm(): TemplateResponse {
+		$groupTopups = [];
+		foreach ($this->storageService->getAllGroupTopups() as $gid => $bytes) {
+			$groupTopups[] = ['gid' => $gid, 'bytes' => $bytes, 'human' => \OCP\Util::humanFileSize($bytes)];
+		}
+
 		return new TemplateResponse('files_accounting', 'admin', [
 			'defaultFreeQuota' => $this->storageService->getDefaultFreeQuota(),
 			'chargePerGb'      => $this->storageService->getChargePerGb(),
@@ -22,6 +27,8 @@ class AdminSettings implements ISettings {
 			'billingDay'       => $this->storageService->getBillingDayOfMonth(),
 			'billingNetDays'   => $this->storageService->getBillingNetDays(),
 			'gifts'            => $this->storageService->getGifts(),
+			'pendingBills'     => $this->storageService->getBills(null, null, 'pending'),
+			'groupTopups'      => $groupTopups,
 		], 'blank');
 	}
 

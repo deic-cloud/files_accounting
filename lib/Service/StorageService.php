@@ -495,6 +495,158 @@ class StorageService {
 	}
 
 	// -------------------------------------------------------------------------
+	// Home-directory quota top-up (BILLING.md Option B)
+	// -------------------------------------------------------------------------
+	// A university (owner of its domain group) buys extra free quota on its users'
+	// STANDARD home dirs. Stored per group here (not on uga_groups, which carries
+	// the grant-FOLDER size). Effective home free = baseline B + Σ top-ups of the
+	// user's groups; the university is billed for members' home usage in that band.
+
+	public function getGroupTopup(string $gid): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('topup_bytes')->from('files_accounting_topup')
+			->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)));
+		$cursor = $qb->executeQuery();
+		$val = $cursor->fetchOne();
+		$cursor->closeCursor();
+		return $val === false ? 0 : (int)$val;
+	}
+
+	public function setGroupTopup(string $gid, int $bytes): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('files_accounting_topup')
+			->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)));
+		$qb->executeStatement();
+		if ($bytes > 0) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->insert('files_accounting_topup')->values([
+				'gid'         => $qb->createNamedParameter($gid),
+				'topup_bytes' => $qb->createNamedParameter($bytes, IQueryBuilder::PARAM_INT),
+				'updated_at'  => $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT),
+			]);
+			$qb->executeStatement();
+		}
+	}
+
+	/** All groups with a home top-up set: [gid => topup_bytes]. */
+	public function getAllGroupTopups(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('gid', 'topup_bytes')->from('files_accounting_topup')
+			->where($qb->expr()->gt('topup_bytes', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)));
+		$cursor = $qb->executeQuery();
+		$rows = $cursor->fetchAll();
+		$cursor->closeCursor();
+		$out = [];
+		foreach ($rows as $r) {
+			$out[(string)$r['gid']] = (int)$r['topup_bytes'];
+		}
+		return $out;
+	}
+
+	/**
+	 * Institutional top-up (T) for a user: the sum of the home top-ups of the groups
+	 * (domains) they're an accepted member of.
+	 */
+	public function getUserTopupBytes(string $userId): int {
+		$topups = $this->getAllGroupTopups();
+		if (empty($topups)) {
+			return 0;
+		}
+		$sum = 0;
+		foreach ($this->getUserGroupIds($userId) as $gid) {
+			$sum += $topups[$gid] ?? 0;
+		}
+		return $sum;
+	}
+
+	/**
+	 * Effective free quota in bytes = personal baseline + institutional top-up.
+	 * Baseline is the individual override if set, else the platform default (B); the
+	 * institutional top-up (T) always adds on top. Shown to the user as one figure.
+	 */
+	public function getEffectiveFreeBytes(string $userId): int {
+		$base = $this->getUserFreequota($userId);
+		if ($base === '') {
+			$base = $this->getDefaultFreeQuota();
+		}
+		return $this->parseQuotaToBytes($base) + $this->getUserTopupBytes($userId);
+	}
+
+	/** Human-readable effective free quota (baseline + institutional top-up). */
+	public function getEffectiveFreeQuota(string $userId): string {
+		$bytes = $this->getEffectiveFreeBytes($userId);
+		return $bytes > 0 ? \OCP\Util::humanFileSize($bytes) : '0';
+	}
+
+	/** Platform baseline B in bytes (what WE sponsor; the top-up bills above this). */
+	public function getBaselineFreeBytes(): int {
+		return $this->parseQuotaToBytes($this->getDefaultFreeQuota());
+	}
+
+	/**
+	 * Groups OWNED by $userId that have a home top-up set: [['gid'=>, 'topup_bytes'=>], ...].
+	 * The owner (university) is billed for these. Returns [] if uga tables absent.
+	 */
+	public function getOwnedTopupGroups(string $userId): array {
+		if (!$this->db->tableExists('uga_groups')) {
+			return [];
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('t.gid', 't.topup_bytes')
+				->from('files_accounting_topup', 't')
+				->innerJoin('t', 'uga_groups', 'g', $qb->expr()->eq('t.gid', 'g.gid'))
+				->where($qb->expr()->eq('g.owner', $qb->createNamedParameter($userId)))
+				->andWhere($qb->expr()->gt('t.topup_bytes', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)));
+			$cursor = $qb->executeQuery();
+			$rows = $cursor->fetchAll();
+			$cursor->closeCursor();
+			return $rows;
+		} catch (\Throwable $e) {
+			$this->logger->debug('files_accounting: getOwnedTopupGroups failed: ' . $e->getMessage());
+			return [];
+		}
+	}
+
+	/** Accepted member uids of a group (from uga_group_members). [] if tables absent. */
+	public function getGroupMemberIds(string $gid): array {
+		if (!$this->db->tableExists('uga_group_members')) {
+			return [];
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('uid')->from('uga_group_members')
+				->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)))
+				->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)));
+			$cursor = $qb->executeQuery();
+			$rows = $cursor->fetchAll();
+			$cursor->closeCursor();
+			return array_column($rows, 'uid');
+		} catch (\Throwable $e) {
+			return [];
+		}
+	}
+
+	/** Group ids a user is an accepted member of (from uga_group_members). */
+	private function getUserGroupIds(string $userId): array {
+		if (!$this->db->tableExists('uga_group_members')) {
+			return [];
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('gid')->from('uga_group_members')
+				->where($qb->expr()->eq('uid', $qb->createNamedParameter($userId)))
+				->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)));
+			$cursor = $qb->executeQuery();
+			$rows = $cursor->fetchAll();
+			$cursor->closeCursor();
+			return array_column($rows, 'gid');
+		} catch (\Throwable $e) {
+			return [];
+		}
+	}
+
+	// -------------------------------------------------------------------------
 	// Billing records
 	// -------------------------------------------------------------------------
 
@@ -582,6 +734,46 @@ class StorageService {
 			->set('status', $qb->createNamedParameter($status))
 			->where($qb->expr()->eq('reference_id', $qb->createNamedParameter($referenceId)));
 		return $qb->executeStatement() > 0;
+	}
+
+	/**
+	 * Mark bills (by row id) as paid, optionally stamping a payment reference.
+	 * Returns the affected rows (id/user/year/month) so the caller can clear each
+	 * user's pending-bill notification. Supports bulk (e.g. a university settling
+	 * all of its domain's bills at once — BILLING.md §7).
+	 *
+	 * @param int[] $ids
+	 * @return array<int, array{id:int, user:string, year:int, month:int}>
+	 */
+	public function markBillsPaid(array $ids, string $reference = ''): array {
+		if (empty($ids)) {
+			return [];
+		}
+		$ids = array_map('intval', $ids);
+
+		// Fetch first — we need user/year/month to dismiss notifications afterwards.
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id', 'user', 'year', 'month')->from('files_accounting')
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+		$cursor = $qb->executeQuery();
+		$rows = $cursor->fetchAll();
+		$cursor->closeCursor();
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('files_accounting')
+			->set('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PAID))
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+		if ($reference !== '') {
+			$qb->set('reference_id', $qb->createNamedParameter($reference));
+		}
+		$qb->executeStatement();
+
+		return array_map(static fn (array $r): array => [
+			'id'    => (int)$r['id'],
+			'user'  => (string)$r['user'],
+			'year'  => (int)$r['year'],
+			'month' => (int)$r['month'],
+		], $rows);
 	}
 
 	/**

@@ -86,6 +86,9 @@ All OCS endpoints return JSON when `?format=json` is appended. Admin authenticat
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/invoice` | Get invoice PDF (base64). Params: `user`, `filename` |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/usage` | Daily usage rows. Params: `user`, `year`, optional `month` |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/statistics` | Aggregate dashboard data: monthly usage/billing `summary`, `topUsers`, `collaboration` metrics. Optional `year` |
+| `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/bills/markpaid` | Mark bills paid (single or bulk) + clear notifications. Body: `{ids:[...]}` |
+| `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Get a group's home-quota top-up. Param: `gid` |
+| `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Set a group's home-quota top-up (Option B). Body: `{gid, quota}` (`0` removes) |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Get free quota. Param: `user` |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Set free quota. Body: `{user, quota}` or `{quota, default:true}` |
 

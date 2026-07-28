@@ -6,6 +6,8 @@ $billingCurrency  = $_['billingCurrency'];
 $billingDay       = $_['billingDay'];
 $billingNetDays   = $_['billingNetDays'];
 $gifts            = $_['gifts'];
+$pendingBills     = $_['pendingBills'] ?? [];
+$groupTopups      = $_['groupTopups'] ?? [];
 ?>
 <div id="files-accounting-stats" class="section">
 <h2><?php p($l->t('Usage statistics')); ?></h2>
@@ -251,6 +253,63 @@ $gifts            = $_['gifts'];
 	<span id="fa-fq-msg"></span>
 </div>
 
+<h3><?php p($l->t('Institutional home-quota top-up')); ?></h3>
+<p class="settings-hint"><?php p($l->t('Extra free quota a university (as owner of its domain group) buys on its users\' standard home directories. Billed to the group owner for members\' home usage above the platform free tier. Independent of grant folders.')); ?></p>
+<div style="margin-bottom:8px;">
+	<input id="fa-topup-gid"   type="text" placeholder="<?php p($l->t('Group / domain, e.g. dtu.dk')); ?>" style="width:220px;">
+	<input id="fa-topup-quota" type="text" placeholder="<?php p($l->t('e.g. 500 GB (0 = remove)')); ?>" style="width:140px;">
+	<button id="fa-set-topup"><?php p($l->t('Set')); ?></button>
+	<span id="fa-topup-msg"></span>
+</div>
+<table id="fa-topup-table" style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+	<thead><tr>
+		<th style="text-align:left;"><?php p($l->t('Group')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Home top-up')); ?></th>
+		<th></th>
+	</tr></thead>
+	<tbody id="fa-topup-tbody">
+	<?php foreach ($groupTopups as $tu): ?>
+		<tr data-gid="<?php p($tu['gid']); ?>">
+			<td><?php p($tu['gid']); ?></td>
+			<td><?php p($tu['human']); ?></td>
+			<td><button class="fa-del-topup"><?php p($l->t('Remove')); ?></button></td>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
+</table>
+
+<h3><?php p($l->t('Pending bills')); ?></h3>
+<?php if (empty($pendingBills)): ?>
+<p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No pending bills.')); ?></em></p>
+<?php else: ?>
+<div style="margin-bottom:6px;">
+	<button id="fa-markpaid-selected"><?php p($l->t('Mark selected paid')); ?></button>
+	<span id="fa-markpaid-msg"></span>
+</div>
+<table id="fa-pending-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+	<thead><tr>
+		<th><input type="checkbox" id="fa-pending-all"></th>
+		<th style="text-align:left;"><?php p($l->t('User')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Period')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Amount')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Due')); ?></th>
+		<th></th>
+	</tr></thead>
+	<tbody id="fa-pending-tbody">
+	<?php foreach ($pendingBills as $b): ?>
+		<tr data-id="<?php p($b['id']); ?>">
+			<td><input type="checkbox" class="fa-pending-cb" value="<?php p($b['id']); ?>"></td>
+			<td><?php p($b['user']); ?></td>
+			<td><?php p(date('F Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
+			<td><?php p(number_format((float)$b['amount_due'], 2) . ' ' . $billingCurrency); ?></td>
+			<td><?php p($b['time_due'] ? date('Y-m-d', (int)$b['time_due']) : ''); ?></td>
+			<td><button class="fa-markpaid-one"><?php p($l->t('Mark paid')); ?></button></td>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
+</table>
+<?php endif; ?>
+
 <h3><?php p($l->t('Gift codes')); ?></h3>
 <div style="margin-bottom:12px;">
 	<label><?php p($l->t('Storage size')); ?>: <input id="fa-gift-size" type="text" placeholder="e.g. 10 GB" style="width:120px;"></label>
@@ -364,5 +423,73 @@ $gifts            = $_['gifts'];
 		});
 	}
 	document.querySelectorAll('.fa-delete-gift').forEach(bindDelete);
+
+	// --- Institutional home-quota top-up (Option B) ---
+	function bindDelTopup(btn) {
+		btn.addEventListener('click', function() {
+			var tr  = this.closest('tr');
+			var gid = tr.dataset.gid;
+			if (!confirm('Remove home top-up for ' + gid + '?')) return;
+			ocsPost('grouptopup', {gid: gid, quota: '0'}).then(function() { tr.remove(); });
+		});
+	}
+	document.querySelectorAll('.fa-del-topup').forEach(bindDelTopup);
+
+	var setTopupBtn = document.getElementById('fa-set-topup');
+	if (setTopupBtn) setTopupBtn.addEventListener('click', function() {
+		var gid   = document.getElementById('fa-topup-gid').value.trim();
+		var quota = document.getElementById('fa-topup-quota').value.trim();
+		var msg   = document.getElementById('fa-topup-msg');
+		if (!gid) return;
+		ocsPost('grouptopup', {gid: gid, quota: quota}).then(function(data) {
+			var d = data && data.ocs && data.ocs.data ? data.ocs.data : {};
+			if (d.status !== 'ok') { msg.textContent = '✗'; msg.style.color = 'red'; return; }
+			msg.textContent = '✓'; msg.style.color = 'green';
+			var tbody = document.getElementById('fa-topup-tbody');
+			var row = tbody.querySelector('tr[data-gid="' + (window.CSS && CSS.escape ? CSS.escape(gid) : gid) + '"]');
+			if (d.bytes > 0) {
+				var human = (d.bytes / (1024*1024*1024)).toFixed(2) + ' GB';
+				if (row) { row.children[1].textContent = human; }
+				else {
+					row = document.createElement('tr'); row.dataset.gid = gid;
+					row.innerHTML = '<td></td><td></td><td><button class="fa-del-topup">Remove</button></td>';
+					row.children[0].textContent = gid; row.children[1].textContent = human;
+					tbody.appendChild(row); bindDelTopup(row.querySelector('.fa-del-topup'));
+				}
+			} else if (row) { row.remove(); }
+		});
+	});
+
+	// --- Pending bills: mark paid (single + bulk) ---
+	function markPaid(ids, done) {
+		if (!ids.length) return;
+		ocsPost('bills/markpaid', {ids: ids}).then(function(data) {
+			var d = data && data.ocs && data.ocs.data ? data.ocs.data : {};
+			if (d.status === 'ok') done();
+		});
+	}
+	document.querySelectorAll('.fa-markpaid-one').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			var tr = this.closest('tr');
+			markPaid([tr.dataset.id], function() { tr.remove(); });
+		});
+	});
+	var allCb = document.getElementById('fa-pending-all');
+	if (allCb) allCb.addEventListener('change', function() {
+		document.querySelectorAll('.fa-pending-cb').forEach(function(cb) { cb.checked = allCb.checked; });
+	});
+	var selBtn = document.getElementById('fa-markpaid-selected');
+	if (selBtn) selBtn.addEventListener('click', function() {
+		var ids = Array.prototype.slice.call(document.querySelectorAll('.fa-pending-cb:checked')).map(function(cb) { return cb.value; });
+		var msg = document.getElementById('fa-markpaid-msg');
+		if (!ids.length) { msg.textContent = 'Select bills first'; return; }
+		markPaid(ids, function() {
+			ids.forEach(function(id) {
+				var tr = document.querySelector('#fa-pending-tbody tr[data-id="' + id + '"]');
+				if (tr) tr.remove();
+			});
+			msg.textContent = '✓ ' + ids.length + ' marked paid'; msg.style.color = 'green';
+		});
+	});
 })();
 </script>

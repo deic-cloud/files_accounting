@@ -25,8 +25,10 @@ class PersonalSettings implements ISettings {
 
 		$userFreequota    = $uid !== '' ? $this->storageService->getUserFreequota($uid) : '';
 		$defaultFreequota = $this->storageService->getDefaultFreeQuota();
-		$effectiveFree    = ($userFreequota && $userFreequota !== '0') ? $userFreequota : $defaultFreequota;
-		$freeBytes        = $this->storageService->parseQuotaToBytes($effectiveFree);
+		// Effective free tier = personal baseline + institutional top-up (BILLING.md
+		// Option B), shown as one figure — the user needn't know the split.
+		$effectiveFree    = $uid !== '' ? $this->storageService->getEffectiveFreeQuota($uid) : $defaultFreequota;
+		$freeBytes        = $uid !== '' ? $this->storageService->getEffectiveFreeBytes($uid) : 0;
 
 		$currentUsage  = $uid !== '' ? $this->storageService->getLocalUsage($uid) : ['files_usage' => 0, 'trash_usage' => 0];
 		$usedBytes     = $currentUsage['files_usage'] + $currentUsage['trash_usage'];
