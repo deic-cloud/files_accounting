@@ -116,17 +116,20 @@ A monthly row is written even when 0 so history is complete.
 
 ## 7. Payment & marking paid
 
-- **PayPal is postponed** (no users are expected to pay for themselves). The seam
-  is kept: the installer already stages PayPal creds; when enabled, each pending
-  bill/invoice shows a **"Pay now"** button → PayPal → IPN marks it `paid`
-  (`reference_id` = txn id) and clears the notification. Until enabled, the button
-  is hidden — turning it on is a config flip, not a rebuild. Rationale: external
-  collaborators of research groups don't pay today but wouldn't mind, and some
-  prefer to — making self-pay easy is worth having.
-- **Admin "Mark paid"** (available now): flips a `pending` bill to `paid` and stamps
-  `reference_id` (e.g. a bank reference). Supports **bulk** — mark all of a domain's
-  period bills (or a bulk invoice) paid in one action, since payment in practice
-  arrives per university, per domain.
+Payment is by **invoice → bank transfer**. The payers are **university
+administrations paying for their users** — they settle invoices from their finance
+department by bank transfer, not with a consumer payment button.
+
+- **No PayPal / card gateway** (decision 2026-07-28). Not merely postponed —
+  deliberately not built: (a) university finance departments pay by bank transfer,
+  not PayPal; (b) a US big-tech payment button would alienate the very users who
+  come here to get *away* from US big tech. Focus instead on making invoicing to
+  administrations easy and transparent.
+- **Invoices carry our bank/payment details** (IBAN/account + a payment reference)
+  so an administration can pay directly. (Config key TODO — see §10.)
+- **Admin "Mark paid"** (built): flips a `pending` bill to `paid` and stamps
+  `reference_id` (e.g. the bank reference). Supports **bulk** — settle all of a
+  domain's period bills at once, since payment arrives per university.
 
 ## 8. Delegation — institutions via `user_group_admin`
 
@@ -151,7 +154,7 @@ Both **we** (admin UI) and **they** (delegated UI + API) can set/adjust `T`.
 This model spans three apps:
 
 - **files_accounting** (this app): quota math, metered charging, per-user + domain
-  invoices, statuses, notifications, escalation, bulk mark-paid, PayPal seam.
+  invoices, statuses, notifications, escalation, bulk mark-paid.
 - **user_group_admin**: group = domain; group owner = institution's UID; owner
   capabilities above (set `T`, membership incl. externals, signup gate, view/pay
   invoices).
@@ -167,13 +170,17 @@ Existing (see README): `charge_per_gb`, `billingcurrency`, `billingdayofmonth`,
 
 New:
 - `billing_admin_alert_months` (default `3`) — pending age before admin escalation.
-- Per-group institutional top-up `T` — stored per group (new small table or group
-  metadata; implementation detail).
-- Per-group `signups_stopped` flag.
+- Per-group home top-up (Option B) — stored in `files_accounting_topup` (built).
+- **Bank/payment details on invoices** (TODO) — IBAN/account + payment reference,
+  so administrations can pay by transfer. A config key (e.g. `billing_bank_details`)
+  rendered on the invoice PDF.
+- Per-group `signups_stopped` flag (not yet built).
 
 ## 11. Deferred / open
 
-- PayPal activation (seam only for now).
-- University-facing self-service UI polish (API first is acceptable).
-- `getStorageGrantUsage` still returns 0 until `user_group_admin` implements the
-  shared-folder file structure (pre-existing note).
+- **Bank details on the invoice PDF** — the immediate next step for "make it easy
+  for administrations to pay" (see §7 / §10).
+- University-facing self-service (group owner sets their own top-up) — admin + API
+  only for now; owner UI in `user_group_admin` later.
+- Sabre hard-stop quota enforcement (billing threshold only for now).
+- No PayPal / card gateway (decided against — §7).
