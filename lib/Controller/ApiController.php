@@ -107,7 +107,9 @@ class ApiController extends OCSController {
 		if (!is_array($ids)) {
 			$ids = ($ids !== null && $ids !== '') ? [$ids] : [];
 		}
-		$reference = (string)$this->request->getParam('reference', 'manual');
+		// Default empty so reference_id (the invoice number / PDF filename) is PRESERVED.
+		// Only a bank/payment reference explicitly supplied by the admin overwrites it.
+		$reference = (string)$this->request->getParam('reference', '');
 		$rows = $this->storageService->markBillsPaid($ids, $reference);
 		foreach ($rows as $r) {
 			$this->notificationService->dismissBillNotification($r['user'], $r['year'], $r['month']);
