@@ -291,11 +291,10 @@ foreach ($bills as $b) {
 <?php if (empty($bills)): ?>
 <p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No bills yet.')); ?></em></p>
 <?php else: ?>
-<div style="margin-bottom:6px;">
-	<label style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fa-hide-paid"> <?php p($l->t('Hide paid bills')); ?></label>
-	&nbsp;&nbsp;
-	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference (optional)')); ?>" style="width:220px;">
-	<button id="fa-markpaid-selected"><?php p($l->t('Mark selected paid')); ?></button>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+	<label style="display:inline-flex;align-items:center;gap:4px;margin:0;"><input type="checkbox" id="fa-hide-paid" style="margin:0;"> <?php p($l->t('Hide paid bills')); ?></label>
+	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference (optional)')); ?>" style="width:220px;margin-left:16px;">
+	<button id="fa-markpaid-selected" style="margin:0;"><?php p($l->t('Mark selected paid')); ?></button>
 	<span id="fa-markpaid-msg"></span>
 </div>
 <table id="fa-bills-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
