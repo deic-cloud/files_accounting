@@ -135,8 +135,13 @@ department by bank transfer, not with a consumer payment button.
   domain's period bills at once, since payment arrives per university.
 - **One chronological Bills list** on the admin Billing page (newest first):
   user / issued / amount / status / due / paid-on / invoice # / payment ref, with a
-  running **outstanding total** and a **"Hide paid bills"** toggle. Paid bills stay
-  listed as history rather than vanishing once settled.
+  running **outstanding total**. The invoice # links to the PDF; the payment ref is
+  click-to-edit. Because a bill row is written monthly for every user even when
+  nothing is due, the default view is the **actionable worklist** only: the **last
+  3 months** of **chargeable, unpaid** bills. Three controls widen it —
+  **"Hide non-chargeable bills"** (zero-amount, checked), **"Hide paid bills"**
+  (checked), and **"Show older bills"** — so paid/zero/older rows stay as history
+  without cluttering the default.
 
 ## 8. Delegation — institutions via `user_group_admin`
 
