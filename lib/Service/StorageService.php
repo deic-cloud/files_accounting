@@ -677,21 +677,7 @@ class StorageService {
 	// Billing records
 	// -------------------------------------------------------------------------
 
-	/** Most recently paid bills first (for the admin payment-history view). */
-	public function getRecentPaidBills(int $limit = 100): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')->from('files_accounting')
-			->where($qb->expr()->eq('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PAID)))
-			->orderBy('time_paid', 'DESC')
-			->addOrderBy('year', 'DESC')->addOrderBy('month', 'DESC')
-			->setMaxResults($limit);
-		$cursor = $qb->executeQuery();
-		$rows = $cursor->fetchAll();
-		$cursor->closeCursor();
-		return $rows;
-	}
-
-	public function getBills(?string $userId = null, ?int $year = null, ?string $status = null): array {
+	public function getBills(?string $userId = null, ?int $year = null, ?string $status = null, ?int $limit = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')->from('files_accounting')->where('1=1');
 		if ($userId !== null) {
@@ -703,7 +689,11 @@ class StorageService {
 		if ($status !== null) {
 			$qb->andWhere($qb->expr()->eq('status', $qb->createNamedParameter($status)));
 		}
-		$qb->orderBy('year', 'DESC')->addOrderBy('month', 'DESC');
+		// Chronological by issue date (period), newest first.
+		$qb->orderBy('year', 'DESC')->addOrderBy('month', 'DESC')->addOrderBy('id', 'DESC');
+		if ($limit !== null) {
+			$qb->setMaxResults($limit);
+		}
 		$cursor = $qb->executeQuery();
 		$rows = $cursor->fetchAll();
 		$cursor->closeCursor();
@@ -786,7 +776,7 @@ class StorageService {
 	 * @param int[] $ids
 	 * @return array<int, array{id:int, user:string, year:int, month:int}>
 	 */
-	public function markBillsPaid(array $ids, string $reference = ''): array {
+	public function markBillsPaid(array $ids, string $paymentRef = ''): array {
 		if (empty($ids)) {
 			return [];
 		}
@@ -805,8 +795,10 @@ class StorageService {
 			->set('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PAID))
 			->set('time_paid', $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
-		if ($reference !== '') {
-			$qb->set('reference_id', $qb->createNamedParameter($reference));
+		// Record the bank/payment reference separately — never touch reference_id
+		// (the invoice number / PDF filename).
+		if ($paymentRef !== '') {
+			$qb->set('payment_ref', $qb->createNamedParameter($paymentRef));
 		}
 		$qb->executeStatement();
 

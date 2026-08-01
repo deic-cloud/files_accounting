@@ -32,8 +32,7 @@ class AdminSettings implements ISettings {
 			'billingDay'       => $this->storageService->getBillingDayOfMonth(),
 			'billingNetDays'   => $this->storageService->getBillingNetDays(),
 			'gifts'            => $this->storageService->getGifts(),
-			'pendingBills'     => $this->storageService->getBills(null, null, 'pending'),
-			'paidBills'        => $this->storageService->getRecentPaidBills(100),
+			'bills'            => $this->storageService->getBills(null, null, null, 200),
 			'groupTopups'      => $groupTopups,
 		], 'blank');
 	}

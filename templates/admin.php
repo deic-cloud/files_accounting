@@ -6,8 +6,7 @@ $billingCurrency  = $_['billingCurrency'];
 $billingDay       = $_['billingDay'];
 $billingNetDays   = $_['billingNetDays'];
 $gifts            = $_['gifts'];
-$pendingBills     = $_['pendingBills'] ?? [];
-$paidBills        = $_['paidBills'] ?? [];
+$bills            = $_['bills'] ?? [];
 $groupTopups      = $_['groupTopups'] ?? [];
 ?>
 <div id="files-accounting-stats" class="section">
@@ -281,68 +280,55 @@ $groupTopups      = $_['groupTopups'] ?? [];
 	</tbody>
 </table>
 
-<h3><?php p($l->t('Pending bills')); ?></h3>
-<?php if (empty($pendingBills)): ?>
-<p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No pending bills.')); ?></em></p>
-<?php else: $pendingTotal = 0.0; foreach ($pendingBills as $b) { $pendingTotal += (float)$b['amount_due']; } ?>
-<p class="settings-hint"><?php p($l->t('%1$d bill(s) outstanding, totalling %2$s. Payment arrives per university — select a domain owner\'s bills and mark them paid together.', [count($pendingBills), number_format($pendingTotal, 2) . ' ' . $billingCurrency])); ?></p>
+<h3><?php p($l->t('Bills')); ?></h3>
+<?php
+$outstanding = 0.0; $pendingCount = 0;
+foreach ($bills as $b) {
+	if (($b['status'] ?? '') === 'pending') { $outstanding += (float)$b['amount_due']; $pendingCount++; }
+}
+?>
+<p class="settings-hint"><?php p($l->t('All bills, newest first. %1$d outstanding, totalling %2$s. Payment arrives per university — tick a domain owner\'s bills, optionally enter the bank payment reference, and mark them paid together. Paid bills stay listed as history.', [$pendingCount, number_format($outstanding, 2) . ' ' . $billingCurrency])); ?></p>
+<?php if (empty($bills)): ?>
+<p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No bills yet.')); ?></em></p>
+<?php else: ?>
 <div style="margin-bottom:6px;">
+	<label><input type="checkbox" id="fa-hide-paid"> <?php p($l->t('Hide paid bills')); ?></label>
+	&nbsp;&nbsp;
+	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference (optional)')); ?>" style="width:220px;">
 	<button id="fa-markpaid-selected"><?php p($l->t('Mark selected paid')); ?></button>
 	<span id="fa-markpaid-msg"></span>
 </div>
-<table id="fa-pending-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+<table id="fa-bills-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
 	<thead><tr>
-		<th><input type="checkbox" id="fa-pending-all"></th>
+		<th><input type="checkbox" id="fa-bills-all"></th>
 		<th style="text-align:left;"><?php p($l->t('User')); ?></th>
-		<th style="text-align:left;"><?php p($l->t('Period')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Issued')); ?></th>
 		<th style="text-align:left;"><?php p($l->t('Amount')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Status')); ?></th>
 		<th style="text-align:left;"><?php p($l->t('Due')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Paid on')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Invoice #')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Payment ref')); ?></th>
 		<th></th>
 	</tr></thead>
-	<tbody id="fa-pending-tbody">
-	<?php foreach ($pendingBills as $b): ?>
-		<tr data-id="<?php p($b['id']); ?>">
-			<td><input type="checkbox" class="fa-pending-cb" value="<?php p($b['id']); ?>"></td>
+	<tbody id="fa-bills-tbody">
+	<?php foreach ($bills as $b): $paid = (($b['status'] ?? '') === 'paid'); ?>
+		<tr data-id="<?php p($b['id']); ?>"<?php if ($paid) { p(' class="fa-paid-row"'); } ?>>
+			<td><?php if (!$paid): ?><input type="checkbox" class="fa-bill-cb" value="<?php p($b['id']); ?>"><?php endif; ?></td>
 			<td><?php p($b['user']); ?></td>
-			<td><?php p(date('F Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
+			<td><?php p(date('M Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
 			<td><?php p(number_format((float)$b['amount_due'], 2) . ' ' . $billingCurrency); ?></td>
-			<td><?php p($b['time_due'] ? date('Y-m-d', (int)$b['time_due']) : ''); ?></td>
-			<td><button class="fa-markpaid-one"><?php p($l->t('Mark paid')); ?></button></td>
+			<td><?php if ($paid): ?><span style="color:#2d7d46;font-weight:bold;">&#9679; <?php p($l->t('Paid')); ?></span><?php else: ?><span style="color:#c9302c;font-weight:bold;">&#9679; <?php p($l->t('Pending')); ?></span><?php endif; ?></td>
+			<td><?php p(!empty($b['time_due']) ? date('Y-m-d', (int)$b['time_due']) : '—'); ?></td>
+			<td><?php p(($paid && !empty($b['time_paid'])) ? date('Y-m-d', (int)$b['time_paid']) : '—'); ?></td>
+			<td><?php p($b['reference_id'] ?? ''); ?></td>
+			<td><?php p($b['payment_ref'] ?? ''); ?></td>
+			<td><?php if (!$paid): ?><button class="fa-markpaid-one"><?php p($l->t('Mark paid')); ?></button><?php endif; ?></td>
 		</tr>
 	<?php endforeach; ?>
 	</tbody>
-	<tfoot><tr style="border-top:2px solid var(--color-border,#ccc); font-weight:bold;">
-		<td></td>
-		<td colspan="2" style="text-align:right;"><?php p($l->t('Total outstanding')); ?></td>
-		<td><?php p(number_format($pendingTotal, 2) . ' ' . $billingCurrency); ?></td>
-		<td colspan="2"></td>
-	</tr></tfoot>
 </table>
 <?php endif; ?>
-
-<h3><?php p($l->t('Payment history')); ?></h3>
-<p class="settings-hint"><?php p($l->t('Bills that have been settled. The reference is the bank/payment reference stamped when marked paid. Most recent first (last 100).')); ?></p>
-<table id="fa-paid-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
-	<thead><tr>
-		<th style="text-align:left;"><?php p($l->t('User')); ?></th>
-		<th style="text-align:left;"><?php p($l->t('Period')); ?></th>
-		<th style="text-align:left;"><?php p($l->t('Amount')); ?></th>
-		<th style="text-align:left;"><?php p($l->t('Paid on')); ?></th>
-		<th style="text-align:left;"><?php p($l->t('Reference')); ?></th>
-	</tr></thead>
-	<tbody id="fa-paid-tbody">
-	<?php foreach ($paidBills as $b): ?>
-		<tr>
-			<td><?php p($b['user']); ?></td>
-			<td><?php p(date('F Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
-			<td><?php p(number_format((float)$b['amount_due'], 2) . ' ' . $billingCurrency); ?></td>
-			<td><?php p(!empty($b['time_paid']) ? date('Y-m-d', (int)$b['time_paid']) : '—'); ?></td>
-			<td><?php p($b['reference_id'] ?? ''); ?></td>
-		</tr>
-	<?php endforeach; ?>
-	</tbody>
-</table>
-<p id="fa-paid-empty" class="settings-hint" style="<?php p(empty($paidBills) ? '' : 'display:none'); ?>"><em><?php p($l->t('No payments recorded yet.')); ?></em></p>
 
 <h3><?php p($l->t('Gift codes')); ?></h3>
 <div style="margin-bottom:12px;">
@@ -498,10 +484,18 @@ $groupTopups      = $_['groupTopups'] ?? [];
 		});
 	});
 
-	// --- Pending bills: mark paid (single + bulk) ---
+	// --- Bills: hide paid + mark paid (single + bulk) ---
+	var hidePaid = document.getElementById('fa-hide-paid');
+	if (hidePaid) hidePaid.addEventListener('change', function() {
+		document.querySelectorAll('.fa-paid-row').forEach(function(tr) {
+			tr.style.display = hidePaid.checked ? 'none' : '';
+		});
+	});
 	function markPaid(ids, done) {
 		if (!ids.length) return;
-		ocsPost('bills/markpaid', {ids: ids}).then(function(data) {
+		var refEl = document.getElementById('fa-payment-ref');
+		var ref = refEl ? refEl.value.trim() : '';
+		ocsPost('bills/markpaid', {ids: ids, payment_ref: ref}).then(function(data) {
 			var d = data && data.ocs && data.ocs.data ? data.ocs.data : {};
 			if (d.status === 'ok') done();
 		});
@@ -509,17 +503,17 @@ $groupTopups      = $_['groupTopups'] ?? [];
 	document.querySelectorAll('.fa-markpaid-one').forEach(function(btn) {
 		btn.addEventListener('click', function() {
 			var tr = this.closest('tr');
-			// Reload so the bill reappears under Payment history with its paid date + total refreshes.
+			// Reload so the row flips to Paid (with its paid date + any payment ref) and the total refreshes.
 			markPaid([tr.dataset.id], function() { window.location.reload(); });
 		});
 	});
-	var allCb = document.getElementById('fa-pending-all');
+	var allCb = document.getElementById('fa-bills-all');
 	if (allCb) allCb.addEventListener('change', function() {
-		document.querySelectorAll('.fa-pending-cb').forEach(function(cb) { cb.checked = allCb.checked; });
+		document.querySelectorAll('.fa-bill-cb').forEach(function(cb) { cb.checked = allCb.checked; });
 	});
 	var selBtn = document.getElementById('fa-markpaid-selected');
 	if (selBtn) selBtn.addEventListener('click', function() {
-		var ids = Array.prototype.slice.call(document.querySelectorAll('.fa-pending-cb:checked')).map(function(cb) { return cb.value; });
+		var ids = Array.prototype.slice.call(document.querySelectorAll('.fa-bill-cb:checked')).map(function(cb) { return cb.value; });
 		var msg = document.getElementById('fa-markpaid-msg');
 		if (!ids.length) { msg.textContent = 'Select bills first'; return; }
 		markPaid(ids, function() {
