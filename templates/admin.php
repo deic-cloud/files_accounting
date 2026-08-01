@@ -263,7 +263,8 @@ $groupTopups      = $_['groupTopups'] ?? [];
 </div>
 <table id="fa-topup-table" style="width:100%; border-collapse:collapse; margin-bottom:8px;">
 	<thead><tr>
-		<th style="text-align:left;"><?php p($l->t('Group')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Group / domain')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Owner (billed)')); ?></th>
 		<th style="text-align:left;"><?php p($l->t('Home top-up')); ?></th>
 		<th></th>
 	</tr></thead>
@@ -271,6 +272,7 @@ $groupTopups      = $_['groupTopups'] ?? [];
 	<?php foreach ($groupTopups as $tu): ?>
 		<tr data-gid="<?php p($tu['gid']); ?>">
 			<td><?php p($tu['gid']); ?></td>
+			<td><?php if ($tu['owner'] !== '') { p($tu['owner']); } else { ?><em style="color:var(--color-error-text,#8A0000)"><?php p($l->t('no owner set')); ?></em><?php } ?></td>
 			<td><?php p($tu['human']); ?></td>
 			<td><button class="fa-del-topup"><?php p($l->t('Remove')); ?></button></td>
 		</tr>
@@ -281,7 +283,8 @@ $groupTopups      = $_['groupTopups'] ?? [];
 <h3><?php p($l->t('Pending bills')); ?></h3>
 <?php if (empty($pendingBills)): ?>
 <p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No pending bills.')); ?></em></p>
-<?php else: ?>
+<?php else: $pendingTotal = 0.0; foreach ($pendingBills as $b) { $pendingTotal += (float)$b['amount_due']; } ?>
+<p class="settings-hint"><?php p($l->t('%1$d bill(s) outstanding, totalling %2$s. Payment arrives per university — select a domain owner\'s bills and mark them paid together.', [count($pendingBills), number_format($pendingTotal, 2) . ' ' . $billingCurrency])); ?></p>
 <div style="margin-bottom:6px;">
 	<button id="fa-markpaid-selected"><?php p($l->t('Mark selected paid')); ?></button>
 	<span id="fa-markpaid-msg"></span>
@@ -307,6 +310,12 @@ $groupTopups      = $_['groupTopups'] ?? [];
 		</tr>
 	<?php endforeach; ?>
 	</tbody>
+	<tfoot><tr style="border-top:2px solid var(--color-border,#ccc); font-weight:bold;">
+		<td></td>
+		<td colspan="2" style="text-align:right;"><?php p($l->t('Total outstanding')); ?></td>
+		<td><?php p(number_format($pendingTotal, 2) . ' ' . $billingCurrency); ?></td>
+		<td colspan="2"></td>
+	</tr></tfoot>
 </table>
 <?php endif; ?>
 
@@ -449,11 +458,15 @@ $groupTopups      = $_['groupTopups'] ?? [];
 			var row = tbody.querySelector('tr[data-gid="' + (window.CSS && CSS.escape ? CSS.escape(gid) : gid) + '"]');
 			if (d.bytes > 0) {
 				var human = (d.bytes / (1024*1024*1024)).toFixed(2) + ' GB';
-				if (row) { row.children[1].textContent = human; }
+				var owner = d.owner || '';
+				if (row) { row.children[2].textContent = human; }
 				else {
 					row = document.createElement('tr'); row.dataset.gid = gid;
-					row.innerHTML = '<td></td><td></td><td><button class="fa-del-topup">Remove</button></td>';
-					row.children[0].textContent = gid; row.children[1].textContent = human;
+					row.innerHTML = '<td></td><td></td><td></td><td><button class="fa-del-topup">Remove</button></td>';
+					row.children[0].textContent = gid;
+					if (owner) { row.children[1].textContent = owner; }
+					else { row.children[1].innerHTML = '<em style="color:var(--color-error-text,#8A0000)">no owner set</em>'; }
+					row.children[2].textContent = human;
 					tbody.appendChild(row); bindDelTopup(row.querySelector('.fa-del-topup'));
 				}
 			} else if (row) { row.remove(); }

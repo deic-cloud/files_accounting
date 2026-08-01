@@ -17,7 +17,12 @@ class AdminSettings implements ISettings {
 	public function getForm(): TemplateResponse {
 		$groupTopups = [];
 		foreach ($this->storageService->getAllGroupTopups() as $gid => $bytes) {
-			$groupTopups[] = ['gid' => $gid, 'bytes' => $bytes, 'human' => \OCP\Util::humanFileSize($bytes)];
+			$groupTopups[] = [
+				'gid'   => $gid,
+				'bytes' => $bytes,
+				'human' => \OCP\Util::humanFileSize($bytes),
+				'owner' => $this->storageService->getGroupOwner($gid),
+			];
 		}
 
 		return new TemplateResponse('files_accounting', 'admin', [

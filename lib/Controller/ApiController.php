@@ -144,7 +144,12 @@ class ApiController extends OCSController {
 		}
 		$bytes = $this->storageService->parseQuotaToBytes($quota);
 		$this->storageService->setGroupTopup($gid, $bytes);
-		return new DataResponse(['status' => 'ok', 'gid' => $gid, 'bytes' => $bytes]);
+		return new DataResponse([
+			'status' => 'ok',
+			'gid'    => $gid,
+			'bytes'  => $bytes,
+			'owner'  => $this->storageService->getGroupOwner($gid),
+		]);
 	}
 
 	public function getUsage(): DataResponse {

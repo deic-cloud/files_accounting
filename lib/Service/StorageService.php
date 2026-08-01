@@ -617,6 +617,24 @@ class StorageService {
 		}
 	}
 
+	/** Owner uid of a group (uga_groups.owner) — the party billed. '' if unknown. */
+	public function getGroupOwner(string $gid): string {
+		if (!$this->db->tableExists('uga_groups')) {
+			return '';
+		}
+		try {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('owner')->from('uga_groups')
+				->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)));
+			$cursor = $qb->executeQuery();
+			$owner = $cursor->fetchOne();
+			$cursor->closeCursor();
+			return $owner === false ? '' : (string)$owner;
+		} catch (\Throwable $e) {
+			return '';
+		}
+	}
+
 	/** Accepted member uids of a group (from uga_group_members). [] if tables absent. */
 	public function getGroupMemberIds(string $gid): array {
 		if (!$this->db->tableExists('uga_group_members')) {
