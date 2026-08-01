@@ -55,6 +55,15 @@ class StorageService {
 		return (string)$this->config->getSystemValue('fromemail', '');
 	}
 
+	/**
+	 * Bank/payment details rendered on the invoice PDF so an administration can pay
+	 * by transfer (IBAN, account, bank name, etc.). Free text; use ', ' or newlines
+	 * to separate lines. Empty = no payment block. (BILLING.md §7.)
+	 */
+	public function getBankDetails(): string {
+		return (string)$this->config->getSystemValue('billing_bank_details', '');
+	}
+
 	public function getChargePerGb(): float {
 		return (float)$this->config->getSystemValue('charge_per_gb', 0.0);
 	}

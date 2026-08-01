@@ -126,7 +126,8 @@ department by bank transfer, not with a consumer payment button.
   come here to get *away* from US big tech. Focus instead on making invoicing to
   administrations easy and transparent.
 - **Invoices carry our bank/payment details** (IBAN/account + a payment reference)
-  so an administration can pay directly. (Config key TODO — see §10.)
+  so an administration can pay directly — the `billing_bank_details` config value,
+  rendered as a "Payment details" block on the invoice PDF (built).
 - **Admin "Mark paid"** (built): flips a `pending` bill to `paid` and stamps
   `reference_id` (e.g. the bank reference). Supports **bulk** — settle all of a
   domain's period bills at once, since payment arrives per university.
@@ -171,15 +172,12 @@ Existing (see README): `charge_per_gb`, `billingcurrency`, `billingdayofmonth`,
 New:
 - `billing_admin_alert_months` (default `3`) — pending age before admin escalation.
 - Per-group home top-up (Option B) — stored in `files_accounting_topup` (built).
-- **Bank/payment details on invoices** (TODO) — IBAN/account + payment reference,
-  so administrations can pay by transfer. A config key (e.g. `billing_bank_details`)
-  rendered on the invoice PDF.
+- `billing_bank_details` — IBAN/account/bank rendered as a "Payment details" block
+  on the invoice PDF (built). `', '` or newlines separate lines.
 - Per-group `signups_stopped` flag (not yet built).
 
 ## 11. Deferred / open
 
-- **Bank details on the invoice PDF** — the immediate next step for "make it easy
-  for administrations to pay" (see §7 / §10).
 - University-facing self-service (group owner sets their own top-up) — admin + API
   only for now; owner UI in `user_group_admin` later.
 - Sabre hard-stop quota enforcement (billing threshold only for now).

@@ -47,6 +47,7 @@ All billing parameters live in `config/config.php`:
 | `billingvat` | `25` | VAT percentage shown on invoices |
 | `fromaddress` | `''` | Issuer postal address (on invoice) |
 | `fromemail` | `''` | Issuer email (on invoice; also used as From: address) |
+| `billing_bank_details` | `''` | Bank/payment details rendered on the invoice PDF (IBAN, account, bank), so administrations can pay by transfer. `', '` or newlines separate lines. Empty = no payment block |
 | `billinglogo` | `''` | URL of logo image to embed in PDF invoices |
 | `pod_charge_per_second` | `['.*' => 0.0]` | Map of image-name regex → price/second for pod usage |
 | `pod_free_monthly_seconds` | `0` | Free tier pod-seconds per user per month |

@@ -104,6 +104,18 @@ class InvoiceService {
 		$pdf->Cell(150, 7, 'Total', 1, 0, 'R', true);
 		$pdf->Cell(40, 7, number_format($totalAmountDue, 2) . ' ' . $currency, 1, 1, 'R', true);
 
+		// Payment details (bank transfer) — so an administration can actually pay.
+		$bankDetails = $this->storage->getBankDetails();
+		if ($bankDetails !== '') {
+			$pdf->Ln(12);
+			$pdf->SetFont('Arial', 'B', 11);
+			$pdf->Cell(0, 6, 'Payment details', 0, 1, 'L');
+			$pdf->SetFont('Arial', '', 10);
+			$pdf->MultiCell(0, 5, str_replace(', ', "\n", $bankDetails), 0, 'L');
+			$pdf->SetFont('Arial', 'B', 10);
+			$pdf->Cell(0, 6, 'Payment reference: ' . $referenceId, 0, 1, 'L');
+		}
+
 		$pdf->Ln(15);
 		$pdf->SetFont('Arial', '', 10);
 		$pdf->MultiCell(0, 5, 'Thank you for using our services.', 0, 'C');
