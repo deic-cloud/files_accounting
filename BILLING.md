@@ -128,9 +128,12 @@ department by bank transfer, not with a consumer payment button.
 - **Invoices carry our bank/payment details** (IBAN/account + a payment reference)
   so an administration can pay directly — the `billing_bank_details` config value,
   rendered as a "Payment details" block on the invoice PDF (built).
-- **Admin "Mark paid"** (built): flips a `pending` bill to `paid` and stamps
-  `reference_id` (e.g. the bank reference). Supports **bulk** — settle all of a
-  domain's period bills at once, since payment arrives per university.
+- **Admin "Mark paid"** (built): flips a `pending` bill to `paid`, stamps
+  `reference_id` (e.g. the bank reference) and records `time_paid`. Supports
+  **bulk** — settle all of a domain's period bills at once, since payment arrives
+  per university. Settled bills then appear under **Payment history** on the admin
+  Billing page (user / period / amount / paid-on / reference), so payments aren't
+  lost from view once out of the pending worklist.
 
 ## 8. Delegation — institutions via `user_group_admin`
 

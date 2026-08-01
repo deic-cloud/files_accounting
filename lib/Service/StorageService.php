@@ -677,6 +677,20 @@ class StorageService {
 	// Billing records
 	// -------------------------------------------------------------------------
 
+	/** Most recently paid bills first (for the admin payment-history view). */
+	public function getRecentPaidBills(int $limit = 100): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from('files_accounting')
+			->where($qb->expr()->eq('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PAID)))
+			->orderBy('time_paid', 'DESC')
+			->addOrderBy('year', 'DESC')->addOrderBy('month', 'DESC')
+			->setMaxResults($limit);
+		$cursor = $qb->executeQuery();
+		$rows = $cursor->fetchAll();
+		$cursor->closeCursor();
+		return $rows;
+	}
+
 	public function getBills(?string $userId = null, ?int $year = null, ?string $status = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')->from('files_accounting')->where('1=1');
@@ -789,6 +803,7 @@ class StorageService {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update('files_accounting')
 			->set('status', $qb->createNamedParameter(self::PAYMENT_STATUS_PAID))
+			->set('time_paid', $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
 		if ($reference !== '') {
 			$qb->set('reference_id', $qb->createNamedParameter($reference));

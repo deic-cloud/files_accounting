@@ -7,6 +7,7 @@ $billingDay       = $_['billingDay'];
 $billingNetDays   = $_['billingNetDays'];
 $gifts            = $_['gifts'];
 $pendingBills     = $_['pendingBills'] ?? [];
+$paidBills        = $_['paidBills'] ?? [];
 $groupTopups      = $_['groupTopups'] ?? [];
 ?>
 <div id="files-accounting-stats" class="section">
@@ -319,6 +320,30 @@ $groupTopups      = $_['groupTopups'] ?? [];
 </table>
 <?php endif; ?>
 
+<h3><?php p($l->t('Payment history')); ?></h3>
+<p class="settings-hint"><?php p($l->t('Bills that have been settled. The reference is the bank/payment reference stamped when marked paid. Most recent first (last 100).')); ?></p>
+<table id="fa-paid-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+	<thead><tr>
+		<th style="text-align:left;"><?php p($l->t('User')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Period')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Amount')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Paid on')); ?></th>
+		<th style="text-align:left;"><?php p($l->t('Reference')); ?></th>
+	</tr></thead>
+	<tbody id="fa-paid-tbody">
+	<?php foreach ($paidBills as $b): ?>
+		<tr>
+			<td><?php p($b['user']); ?></td>
+			<td><?php p(date('F Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
+			<td><?php p(number_format((float)$b['amount_due'], 2) . ' ' . $billingCurrency); ?></td>
+			<td><?php p(!empty($b['time_paid']) ? date('Y-m-d', (int)$b['time_paid']) : '—'); ?></td>
+			<td><?php p($b['reference_id'] ?? ''); ?></td>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
+</table>
+<p id="fa-paid-empty" class="settings-hint" style="<?php p(empty($paidBills) ? '' : 'display:none'); ?>"><em><?php p($l->t('No payments recorded yet.')); ?></em></p>
+
 <h3><?php p($l->t('Gift codes')); ?></h3>
 <div style="margin-bottom:12px;">
 	<label><?php p($l->t('Storage size')); ?>: <input id="fa-gift-size" type="text" placeholder="e.g. 10 GB" style="width:120px;"></label>
@@ -484,7 +509,8 @@ $groupTopups      = $_['groupTopups'] ?? [];
 	document.querySelectorAll('.fa-markpaid-one').forEach(function(btn) {
 		btn.addEventListener('click', function() {
 			var tr = this.closest('tr');
-			markPaid([tr.dataset.id], function() { tr.remove(); });
+			// Reload so the bill reappears under Payment history with its paid date + total refreshes.
+			markPaid([tr.dataset.id], function() { window.location.reload(); });
 		});
 	});
 	var allCb = document.getElementById('fa-pending-all');
@@ -497,11 +523,8 @@ $groupTopups      = $_['groupTopups'] ?? [];
 		var msg = document.getElementById('fa-markpaid-msg');
 		if (!ids.length) { msg.textContent = 'Select bills first'; return; }
 		markPaid(ids, function() {
-			ids.forEach(function(id) {
-				var tr = document.querySelector('#fa-pending-tbody tr[data-id="' + id + '"]');
-				if (tr) tr.remove();
-			});
 			msg.textContent = '✓ ' + ids.length + ' marked paid'; msg.style.color = 'green';
+			window.location.reload();
 		});
 	});
 })();
