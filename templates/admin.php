@@ -291,8 +291,10 @@ foreach ($bills as $b) {
 <?php if (empty($bills)): ?>
 <p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No bills yet.')); ?></em></p>
 <?php else: ?>
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-	<label style="display:inline-flex;align-items:center;gap:4px;margin:0;"><input type="checkbox" id="fa-hide-paid" style="margin:0;"> <?php p($l->t('Hide paid bills')); ?></label>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+	<label style="display:inline-flex;align-items:center;gap:4px;margin:0;" title="<?php p($l->t('Hide bills with nothing due (usage stayed within the free tier). Most monthly bills are these.')); ?>"><input type="checkbox" id="fa-hide-empty" checked style="margin:0;"> <?php p($l->t('Hide non-chargeable bills')); ?></label>
+	<label style="display:inline-flex;align-items:center;gap:4px;margin:0;"><input type="checkbox" id="fa-hide-paid" checked style="margin:0;"> <?php p($l->t('Hide paid bills')); ?></label>
+	<span id="fa-bills-hidden-note" style="color:var(--color-text-maxcontrast,#888);"></span>
 	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference')); ?>" title="<?php p($l->t('Optional — the reference the payer quotes on their bank transfer. Applied to the ticked bills when you mark them paid. You can also edit it later in the Payment ref column.')); ?>" style="width:220px;margin-left:16px;">
 	<button id="fa-markpaid-selected" style="margin:0;"><?php p($l->t('Mark selected paid')); ?></button>
 	<span id="fa-markpaid-msg"></span>
@@ -311,8 +313,8 @@ foreach ($bills as $b) {
 		<th></th>
 	</tr></thead>
 	<tbody id="fa-bills-tbody">
-	<?php foreach ($bills as $b): $paid = (($b['status'] ?? '') === 'paid'); ?>
-		<tr data-id="<?php p($b['id']); ?>"<?php if ($paid) { p(' class="fa-paid-row"'); } ?>>
+	<?php foreach ($bills as $b): $paid = (($b['status'] ?? '') === 'paid'); $zero = (abs((float)$b['amount_due']) < 0.005); ?>
+		<tr data-id="<?php p($b['id']); ?>" class="fa-bill-row<?php echo $paid ? ' fa-paid-row' : ''; ?><?php echo $zero ? ' fa-zero-row' : ''; ?>">
 			<td><?php if (!$paid): ?><input type="checkbox" class="fa-bill-cb" value="<?php p($b['id']); ?>"><?php endif; ?></td>
 			<td><?php p($b['user']); ?></td>
 			<td><?php p(date('M Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
@@ -483,13 +485,25 @@ foreach ($bills as $b) {
 		});
 	});
 
-	// --- Bills: hide paid + mark paid (single + bulk) ---
-	var hidePaid = document.getElementById('fa-hide-paid');
-	if (hidePaid) hidePaid.addEventListener('change', function() {
-		document.querySelectorAll('.fa-paid-row').forEach(function(tr) {
-			tr.style.display = hidePaid.checked ? 'none' : '';
+	// --- Bills: filter (hide non-chargeable / paid) + mark paid ---
+	var hidePaidCb = document.getElementById('fa-hide-paid');
+	var hideEmptyCb = document.getElementById('fa-hide-empty');
+	var hiddenNote = document.getElementById('fa-bills-hidden-note');
+	function applyBillFilters() {
+		var hp = hidePaidCb && hidePaidCb.checked;
+		var he = hideEmptyCb && hideEmptyCb.checked;
+		var hidden = 0;
+		document.querySelectorAll('#fa-bills-tbody tr').forEach(function(tr) {
+			var hide = (hp && tr.classList.contains('fa-paid-row'))
+			        || (he && tr.classList.contains('fa-zero-row'));
+			tr.style.display = hide ? 'none' : '';
+			if (hide) hidden++;
 		});
-	});
+		if (hiddenNote) hiddenNote.textContent = hidden ? ('(' + hidden + ' hidden)') : '';
+	}
+	if (hidePaidCb) hidePaidCb.addEventListener('change', applyBillFilters);
+	if (hideEmptyCb) hideEmptyCb.addEventListener('change', applyBillFilters);
+	applyBillFilters(); // apply the checked-by-default state on load
 	function markPaid(ids, done) {
 		if (!ids.length) return;
 		var refEl = document.getElementById('fa-payment-ref');
@@ -508,7 +522,11 @@ foreach ($bills as $b) {
 	});
 	var allCb = document.getElementById('fa-bills-all');
 	if (allCb) allCb.addEventListener('change', function() {
-		document.querySelectorAll('.fa-bill-cb').forEach(function(cb) { cb.checked = allCb.checked; });
+		document.querySelectorAll('.fa-bill-cb').forEach(function(cb) {
+			var tr = cb.closest('tr');
+			if (tr && tr.style.display === 'none') return; // don't select hidden rows
+			cb.checked = allCb.checked;
+		});
 	});
 	var selBtn = document.getElementById('fa-markpaid-selected');
 	if (selBtn) selBtn.addEventListener('click', function() {
