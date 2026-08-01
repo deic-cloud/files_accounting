@@ -9,7 +9,7 @@ $gifts            = $_['gifts'];
 $bills            = $_['bills'] ?? [];
 $groupTopups      = $_['groupTopups'] ?? [];
 ?>
-<div id="files-accounting-stats" class="section">
+<div id="files-accounting-stats" class="section" style="margin-top:22px;">
 <h2><?php p($l->t('Usage statistics')); ?></h2>
 
 <div id="fa-collab-cards" style="display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 20px;"></div>
@@ -292,7 +292,7 @@ foreach ($bills as $b) {
 <p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No bills yet.')); ?></em></p>
 <?php else: ?>
 <div style="margin-bottom:6px;">
-	<label><input type="checkbox" id="fa-hide-paid"> <?php p($l->t('Hide paid bills')); ?></label>
+	<label style="display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fa-hide-paid"> <?php p($l->t('Hide paid bills')); ?></label>
 	&nbsp;&nbsp;
 	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference (optional)')); ?>" style="width:220px;">
 	<button id="fa-markpaid-selected"><?php p($l->t('Mark selected paid')); ?></button>

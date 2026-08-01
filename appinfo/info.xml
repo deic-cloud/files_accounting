@@ -4,7 +4,7 @@
 	<id>files_accounting</id>
 	<name>Storage Accounting</name>
 	<description>Track storage usage, generate invoices, and expose a billing API for institutional customers.</description>
-	<version>1.0.6</version>
+	<version>1.0.7</version>
 	<licence>AGPL</licence>
 	<author>ScienceData</author>
 	<namespace>FilesAccounting</namespace>
