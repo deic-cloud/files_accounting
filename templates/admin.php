@@ -286,11 +286,11 @@ $outstanding = 0.0; $pendingCount = 0;
 foreach ($bills as $b) {
 	if (($b['status'] ?? '') === 'pending') { $outstanding += (float)$b['amount_due']; $pendingCount++; }
 }
-// "Last 3 months" cutoff (period year*12+month): current month + the two before.
+// Current month as a period index (year*12+month); each row carries how many
+// months ago it is, so the list can widen 3 months at a time.
 $nowIdx = ((int)date('Y')) * 12 + ((int)date('n'));
-$recentCutoff = $nowIdx - 2;
 ?>
-<p class="settings-hint"><?php p($l->t('%1$d outstanding, totalling %2$s. Payment arrives per university — tick a domain owner\'s bills, optionally enter the bank payment reference, and mark them paid together. By default only the last 3 months of chargeable, unpaid bills are shown; use the toggles and "Show older bills" to reveal the rest.', [$pendingCount, number_format($outstanding, 2) . ' ' . $billingCurrency])); ?></p>
+<p class="settings-hint"><?php p($l->t('%1$d outstanding, totalling %2$s. Payment arrives per university — tick a domain owner\'s bills, optionally enter the bank payment reference, and mark them paid together. By default only the last 3 months of chargeable, unpaid bills are shown; use the toggles, or "Show 3 more months" to widen the range incrementally.', [$pendingCount, number_format($outstanding, 2) . ' ' . $billingCurrency])); ?></p>
 <?php if (empty($bills)): ?>
 <p style="color:var(--color-text-maxcontrast,#888)"><em><?php p($l->t('No bills yet.')); ?></em></p>
 <?php else: ?>
@@ -316,8 +316,8 @@ $recentCutoff = $nowIdx - 2;
 		<th></th>
 	</tr></thead>
 	<tbody id="fa-bills-tbody">
-	<?php foreach ($bills as $b): $paid = (($b['status'] ?? '') === 'paid'); $zero = (abs((float)$b['amount_due']) < 0.005); $old = (((int)$b['year'] * 12 + (int)$b['month']) < $recentCutoff); ?>
-		<tr data-id="<?php p($b['id']); ?>" class="fa-bill-row<?php echo $paid ? ' fa-paid-row' : ''; ?><?php echo $zero ? ' fa-zero-row' : ''; ?><?php echo $old ? ' fa-old-row' : ''; ?>">
+	<?php foreach ($bills as $b): $paid = (($b['status'] ?? '') === 'paid'); $zero = (abs((float)$b['amount_due']) < 0.005); $monthsAgo = $nowIdx - ((int)$b['year'] * 12 + (int)$b['month']); ?>
+		<tr data-id="<?php p($b['id']); ?>" data-monthsago="<?php p($monthsAgo); ?>" class="fa-bill-row<?php echo $paid ? ' fa-paid-row' : ''; ?><?php echo $zero ? ' fa-zero-row' : ''; ?>">
 			<td><?php if (!$paid): ?><input type="checkbox" class="fa-bill-cb" value="<?php p($b['id']); ?>"><?php endif; ?></td>
 			<td><?php p($b['user']); ?></td>
 			<td><?php p(date('M Y', (int)mktime(0,0,0,(int)$b['month'],1,(int)$b['year']))); ?></td>
@@ -494,26 +494,28 @@ $recentCutoff = $nowIdx - 2;
 	var hideEmptyCb = document.getElementById('fa-hide-empty');
 	var hiddenNote = document.getElementById('fa-bills-hidden-note');
 	var showOlderBtn = document.getElementById('fa-show-older');
-	var showOlder = false;
+	var WINDOW_STEP = 3;      // months revealed per click
+	var visibleMonths = 3;    // start with the last 3 months
 	function applyBillFilters() {
 		var hp = hidePaidCb && hidePaidCb.checked;
 		var he = hideEmptyCb && hideEmptyCb.checked;
-		var hidden = 0, older = 0;
+		var hidden = 0, olderRevealable = 0;
 		document.querySelectorAll('#fa-bills-tbody tr').forEach(function(tr) {
-			if (tr.classList.contains('fa-old-row')) older++;
-			var hide = (hp && tr.classList.contains('fa-paid-row'))
-			        || (he && tr.classList.contains('fa-zero-row'))
-			        || (!showOlder && tr.classList.contains('fa-old-row'));
+			var monthsAgo = parseInt(tr.dataset.monthsago, 10) || 0;
+			var filteredOut = (hp && tr.classList.contains('fa-paid-row'))
+			               || (he && tr.classList.contains('fa-zero-row'));
+			var beyondWindow = monthsAgo >= visibleMonths;
+			if (beyondWindow && !filteredOut) olderRevealable++;
+			var hide = filteredOut || beyondWindow;
 			tr.style.display = hide ? 'none' : '';
 			if (hide) hidden++;
 		});
 		if (hiddenNote) hiddenNote.textContent = hidden ? ('(' + hidden + ' hidden)') : '';
 		if (showOlderBtn) {
-			if (older > 0) {
+			if (olderRevealable > 0) {
 				showOlderBtn.style.display = '';
-				showOlderBtn.textContent = showOlder
-					? '▲ ' + <?php echo json_encode($l->t('Show last 3 months only')); ?>
-					: '▼ ' + <?php echo json_encode($l->t('Show older bills')); ?> + ' (' + older + ')';
+				showOlderBtn.textContent = '▼ ' + <?php echo json_encode($l->t('Show 3 more months')); ?>
+					+ ' (' + olderRevealable + ' ' + <?php echo json_encode($l->t('older')); ?> + ')';
 			} else {
 				showOlderBtn.style.display = 'none';
 			}
@@ -521,8 +523,8 @@ $recentCutoff = $nowIdx - 2;
 	}
 	if (hidePaidCb) hidePaidCb.addEventListener('change', applyBillFilters);
 	if (hideEmptyCb) hideEmptyCb.addEventListener('change', applyBillFilters);
-	if (showOlderBtn) showOlderBtn.addEventListener('click', function() { showOlder = !showOlder; applyBillFilters(); });
-	applyBillFilters(); // apply the default state on load (recent months, checked filters)
+	if (showOlderBtn) showOlderBtn.addEventListener('click', function() { visibleMonths += WINDOW_STEP; applyBillFilters(); });
+	applyBillFilters(); // apply the default state on load (last 3 months, checked filters)
 	function markPaid(ids, done) {
 		if (!ids.length) return;
 		var refEl = document.getElementById('fa-payment-ref');

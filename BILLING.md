@@ -140,8 +140,8 @@ department by bank transfer, not with a consumer payment button.
   nothing is due, the default view is the **actionable worklist** only: the **last
   3 months** of **chargeable, unpaid** bills. Three controls widen it —
   **"Hide non-chargeable bills"** (zero-amount, checked), **"Hide paid bills"**
-  (checked), and **"Show older bills"** — so paid/zero/older rows stay as history
-  without cluttering the default.
+  (checked), and **"Show 3 more months"** (widens the range 3 months per click) —
+  so paid/zero/older rows stay as history without cluttering the default.
 
 ## 8. Delegation — institutions via `user_group_admin`
 
