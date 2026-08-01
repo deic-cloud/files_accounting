@@ -118,6 +118,20 @@ class ApiController extends OCSController {
 		return new DataResponse(['status' => 'ok', 'paid' => count($rows)]);
 	}
 
+	/** Edit a single bill's bank/payment reference (fix a typo). */
+	public function setBillPaymentRef(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$id = (int)$this->request->getParam('id', 0);
+		if ($id <= 0) {
+			return new DataResponse(['error' => 'id required'], Http::STATUS_BAD_REQUEST);
+		}
+		$ref = (string)$this->request->getParam('payment_ref', '');
+		$this->storageService->setBillPaymentRef($id, $ref);
+		return new DataResponse(['status' => 'ok', 'id' => $id, 'payment_ref' => $ref]);
+	}
+
 	/** Get a group's home-directory quota top-up (BILLING.md Option B). Admin only. */
 	public function getGroupTopup(): DataResponse {
 		if (!$this->isAdmin()) {

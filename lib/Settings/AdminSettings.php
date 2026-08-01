@@ -6,15 +6,33 @@ namespace OCA\FilesAccounting\Settings;
 
 use OCA\FilesAccounting\Service\StorageService;
 use OCP\AppFramework\Http\TemplateResponse;
+use OCP\IURLGenerator;
 use OCP\Settings\ISettings;
 
 class AdminSettings implements ISettings {
 	public function __construct(
 		private StorageService $storageService,
+		private IURLGenerator $urlGenerator,
 	) {
 	}
 
 	public function getForm(): TemplateResponse {
+		$bills = $this->storageService->getBills(null, null, null, 200);
+		foreach ($bills as &$bill) {
+			$ref = (string)($bill['reference_id'] ?? '');
+			$bill['invoice_url'] = '';
+			if ($ref !== '') {
+				$file = $ref . '.pdf';
+				if (is_file($this->storageService->getInvoiceDir($bill['user']) . '/' . $file)) {
+					$bill['invoice_url'] = $this->urlGenerator->linkToRoute(
+						'files_accounting.Invoice.view',
+						['user' => $bill['user'], 'file' => $file],
+					);
+				}
+			}
+		}
+		unset($bill);
+
 		$groupTopups = [];
 		foreach ($this->storageService->getAllGroupTopups() as $gid => $bytes) {
 			$groupTopups[] = [
@@ -32,7 +50,7 @@ class AdminSettings implements ISettings {
 			'billingDay'       => $this->storageService->getBillingDayOfMonth(),
 			'billingNetDays'   => $this->storageService->getBillingNetDays(),
 			'gifts'            => $this->storageService->getGifts(),
-			'bills'            => $this->storageService->getBills(null, null, null, 200),
+			'bills'            => $bills,
 			'groupTopups'      => $groupTopups,
 		], 'blank');
 	}

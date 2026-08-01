@@ -10,6 +10,7 @@ return [
 		['name' => 'Api#getUsage',       'url' => '/api/v1/usage',         'verb' => 'GET'],
 		['name' => 'Api#getStatistics',  'url' => '/api/v1/statistics',    'verb' => 'GET'],
 		['name' => 'Api#markBillsPaid',  'url' => '/api/v1/bills/markpaid', 'verb' => 'POST'],
+		['name' => 'Api#setBillPaymentRef', 'url' => '/api/v1/bills/paymentref', 'verb' => 'POST'],
 		['name' => 'Api#getGroupTopup',  'url' => '/api/v1/grouptopup',    'verb' => 'GET'],
 		['name' => 'Api#setGroupTopup',  'url' => '/api/v1/grouptopup',    'verb' => 'POST'],
 		['name' => 'Api#setFreeQuota',   'url' => '/api/v1/freequota',     'verb' => 'POST'],
@@ -26,6 +27,8 @@ return [
 		['name' => 'Api#myRedeemGift',   'url' => '/api/v1/my/gifts/redeem', 'verb' => 'POST'],
 	],
 	'routes' => [
+		// Admin: view an invoice PDF in the browser
+		['name' => 'Invoice#view', 'url' => '/invoice/view', 'verb' => 'GET'],
 		// Inter-silo endpoints secured with shared secret
 		['name' => 'Internal#currentUsageAverage', 'url' => '/internal/currentusageaverage', 'verb' => 'POST'],
 		['name' => 'Internal#personalStorage',     'url' => '/internal/personalstorage',     'verb' => 'POST'],

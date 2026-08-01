@@ -88,6 +88,8 @@ All OCS endpoints return JSON when `?format=json` is appended. Admin authenticat
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/usage` | Daily usage rows. Params: `user`, `year`, optional `month` |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/statistics` | Aggregate dashboard data: monthly usage/billing `summary`, `topUsers`, `collaboration` metrics. Optional `year` |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/bills/markpaid` | Mark bills paid (single or bulk) + clear notifications. Body: `{ids:[...], payment_ref?}`. `payment_ref` (optional) records the bank/payment reference in a dedicated column; the invoice number (`reference_id`) is never overwritten |
+| `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/bills/paymentref` | Edit a single bill's bank/payment reference. Body: `{id, payment_ref}` |
+| `GET` | `/apps/files_accounting/invoice/view?user=&file=` | (non-OCS, admin session) Stream an invoice PDF inline for viewing in the browser |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Get a group's home-quota top-up. Param: `gid` |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Set a group's home-quota top-up (Option B). Body: `{gid, quota}` (`0` removes) |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Get free quota. Param: `user` |

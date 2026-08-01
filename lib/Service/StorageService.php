@@ -776,6 +776,15 @@ class StorageService {
 	 * @param int[] $ids
 	 * @return array<int, array{id:int, user:string, year:int, month:int}>
 	 */
+	/** Edit a single bill's bank/payment reference (typo fix after settlement). */
+	public function setBillPaymentRef(int $id, string $ref): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('files_accounting')
+			->set('payment_ref', $qb->createNamedParameter($ref))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+		$qb->executeStatement();
+	}
+
 	public function markBillsPaid(array $ids, string $paymentRef = ''): array {
 		if (empty($ids)) {
 			return [];

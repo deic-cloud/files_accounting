@@ -293,7 +293,7 @@ foreach ($bills as $b) {
 <?php else: ?>
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
 	<label style="display:inline-flex;align-items:center;gap:4px;margin:0;"><input type="checkbox" id="fa-hide-paid" style="margin:0;"> <?php p($l->t('Hide paid bills')); ?></label>
-	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference (optional)')); ?>" style="width:220px;margin-left:16px;">
+	<input id="fa-payment-ref" type="text" placeholder="<?php p($l->t('Bank payment reference')); ?>" title="<?php p($l->t('Optional — the reference the payer quotes on their bank transfer. Applied to the ticked bills when you mark them paid. You can also edit it later in the Payment ref column.')); ?>" style="width:220px;margin-left:16px;">
 	<button id="fa-markpaid-selected" style="margin:0;"><?php p($l->t('Mark selected paid')); ?></button>
 	<span id="fa-markpaid-msg"></span>
 </div>
@@ -320,8 +320,8 @@ foreach ($bills as $b) {
 			<td><?php if ($paid): ?><span style="color:#2d7d46;font-weight:bold;">&#9679; <?php p($l->t('Paid')); ?></span><?php else: ?><span style="color:#c9302c;font-weight:bold;">&#9679; <?php p($l->t('Pending')); ?></span><?php endif; ?></td>
 			<td><?php p(!empty($b['time_due']) ? date('Y-m-d', (int)$b['time_due']) : '—'); ?></td>
 			<td><?php p(($paid && !empty($b['time_paid'])) ? date('Y-m-d', (int)$b['time_paid']) : '—'); ?></td>
-			<td><?php p($b['reference_id'] ?? ''); ?></td>
-			<td><?php p($b['payment_ref'] ?? ''); ?></td>
+			<td><?php $ref = (string)($b['reference_id'] ?? ''); if ($ref !== '' && !empty($b['invoice_url'])): ?><a href="<?php p($b['invoice_url']); ?>" target="_blank" rel="noopener" title="<?php p($l->t('View invoice PDF')); ?>"><?php p($ref); ?></a><?php else: p($ref); endif; ?></td>
+			<td class="fa-payref-cell" data-id="<?php p($b['id']); ?>" title="<?php p($l->t('Click to edit')); ?>" style="cursor:pointer;"><?php $pr = (string)($b['payment_ref'] ?? ''); if ($pr !== '') { p($pr); } else { ?><span style="color:var(--color-text-maxcontrast,#888);">&mdash;</span><?php } ?></td>
 			<td><?php if (!$paid): ?><button class="fa-markpaid-one"><?php p($l->t('Mark paid')); ?></button><?php endif; ?></td>
 		</tr>
 	<?php endforeach; ?>
@@ -518,6 +518,37 @@ foreach ($bills as $b) {
 		markPaid(ids, function() {
 			msg.textContent = '✓ ' + ids.length + ' marked paid'; msg.style.color = 'green';
 			window.location.reload();
+		});
+	});
+
+	// --- Payment ref: click a cell to edit inline (fix typos) ---
+	function showRef(cell, val) {
+		if (val) { cell.textContent = val; }
+		else { cell.innerHTML = '<span style="color:var(--color-text-maxcontrast,#888);">—</span>'; }
+	}
+	document.querySelectorAll('.fa-payref-cell').forEach(function(cell) {
+		cell.addEventListener('click', function() {
+			if (cell.querySelector('input')) return; // already editing
+			var cur = cell.textContent.trim();
+			if (cur === '—') cur = '';
+			cell.innerHTML = '';
+			var inp = document.createElement('input');
+			inp.type = 'text'; inp.value = cur; inp.style.width = '150px';
+			cell.appendChild(inp); inp.focus(); inp.select();
+			var done = false;
+			function save() {
+				if (done) return; done = true;
+				var v = inp.value.trim();
+				ocsPost('bills/paymentref', {id: cell.dataset.id, payment_ref: v}).then(function(data) {
+					var d = data && data.ocs && data.ocs.data ? data.ocs.data : {};
+					showRef(cell, d.status === 'ok' ? v : cur);
+				}, function() { showRef(cell, cur); });
+			}
+			inp.addEventListener('blur', save);
+			inp.addEventListener('keydown', function(e) {
+				if (e.key === 'Enter') { inp.blur(); }
+				else if (e.key === 'Escape') { done = true; showRef(cell, cur); }
+			});
 		});
 	});
 })();
