@@ -228,8 +228,9 @@ class Stats extends TimedJob {
 		// platform baseline B, capped at the per-member top-up. Members' own bills are
 		// unaffected — their effective free already includes the top-up (see above), so
 		// no double-counting.
-		$baselineBytes = $this->storageService->getBaselineFreeBytes();
-		foreach ($this->storageService->getOwnedTopupGroups($userId) as $tg) {
+		$baselineBytes    = $this->storageService->getBaselineFreeBytes();
+		$ownedTopupGroups = $this->storageService->getOwnedTopupGroups($userId);
+		foreach ($ownedTopupGroups as $tg) {
 			$topupBytes     = (float)$tg['topup_bytes'];
 			$sponsoredBytes = 0.0;
 			foreach ($this->storageService->getGroupMemberIds((string)$tg['gid']) as $memberUid) {
@@ -340,7 +341,11 @@ class Stats extends TimedJob {
 				$this->notificationService->notifyUnpaidBill(
 					$userId, $year, $month, $totalDue, $this->storageService->getBillingCurrency()
 				);
-				if (!$this->isUserActive($userId)) {
+				// Institutions (owners of a top-up / storage-grant group) are the real
+				// payers and rarely log in, so ALWAYS email them the invoice rather than
+				// relying on the bell. Individuals get the email only when inactive.
+				$isGroupBillPayer = !empty($grants) || !empty($ownedTopupGroups);
+				if ($isGroupBillPayer || !$this->isUserActive($userId)) {
 					$this->invoiceService->sendInvoiceEmail($userId, $filename, $totalDue);
 				}
 			} else {

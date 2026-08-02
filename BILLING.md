@@ -116,12 +116,14 @@ A monthly row is written even when 0 so history is complete.
 - **Uncovered user with a pending personal bill:** a **persistent UI notification**
   in the bell dropdown (`OCP\Notification`), non-dismissable, that **stays until the
   bill is paid** (matches the old system). Removed when the bill flips to `paid`.
-- **Email is the fallback, not the default:** active users (logged in within the
-  billing period) get the UI notification *only*; inactive users also get one
-  email with the invoice. (In practice inactive users rarely exceed quota anyway.)
-- **Institution with a pending bulk invoice:** the persistent UI notification goes
-  to the **group owner** (the institution's nominated UID), who can pay/settle via
-  the UI or API (§7).
+- **Email fallback for individuals:** an *individual* who is active (logged in
+  within the billing period) gets the UI notification *only*; an inactive one also
+  gets the invoice by email. (Inactive users rarely exceed quota anyway.)
+- **Institution with a pending bill:** the persistent UI notification goes to the
+  **group owner** (the institution's nominated UID), **and** — because the owner is
+  the real payer and rarely logs in — the invoice is **always emailed** to them,
+  active or not, so their bill never depends on the bell. A group-bill payer is any
+  owner of a top-up or storage-grant group. They can pay/settle via the UI or API (§7).
 - **Admin escalation:** a background job emails the **platform admin** (`fromemail`)
   a summary of any bill (personal or domain) that has been `pending` for more than
   **3 months** (configurable). De-duped so the same bill isn't re-reported. No
