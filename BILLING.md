@@ -38,7 +38,9 @@ research-group leaders) that want to *own* the storage they provide.
   fragility workaround; a design choice.
 - **Billed to the group owner.** The billing job already charges grant-folder
   usage to the owner (`getOwnedStorageGrants` + `getStorageGrantUsage`). Size is
-  `uga_groups.storage_grant` (per member) / `storage_grant_total` (committed pool).
+  `uga_groups.storage_grant` (per member) / `storage_grant_total` (committed pool);
+  **both are now hard-enforced** by `user_group_admin`'s `GrantQuotaWrapper` — a
+  member's grant free space is `min(per-member remaining, committed-pool remaining)`.
 - A research-group owner's grant may in turn be covered by *his* university's
   sponsorship; overflow is handled case-by-case.
 
