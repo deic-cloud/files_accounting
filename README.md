@@ -139,6 +139,7 @@ Internal endpoints at `/index.php/apps/files_accounting/internal/…` are called
 | `POST /internal/setfreequota` | Updates user's free quota preference locally |
 | `POST /internal/setgrouptopup` | Master-side write of a group top-up forwarded by a silo (owner self-service) + member quota re-sync |
 | `POST /internal/getgrouptopup` | Master-side read of a group's authoritative top-up |
+| `POST /internal/getownedtopups` | Master-side list of a user's owned top-up groups (owner Accounting view on a silo) |
 | `GET /internal/prepaid` | Returns prepaid credit balance |
 | `POST /internal/prepaid` | Updates prepaid credit balance |
 | `POST /internal/expiregifts` | Expires stale gift codes for a user |
