@@ -61,12 +61,25 @@ effective_home_free(user) =
 - **The user sees one figure** — their effective home free quota — and needn't
   know the split between what we and their university sponsor.
 
-## 3. Enforcement — billing threshold now; hard stop later
+## 3. Enforcement — hard write-stop at the effective free quota
 
-For now the effective free quota is a **billing threshold** (the no-charge line),
-not a hard storage cap. A Sabre quota-enforcement plugin (refusing writes past the
-ceiling, reporting it over WebDAV) is a **separate, later** piece — kept out of
-this pass for stability.
+The effective free quota is **both** the no-charge line **and** the hard ceiling.
+files_accounting pushes it into Nextcloud's **native per-user quota** (`syncUserQuota`,
+on the master; files_sharding's `UserChangedListener` propagates it to the user's
+silo), so core enforces it: writes past the ceiling return **507 Insufficient
+Storage**, sync clients see the limit, and — crucially — **existing data is never
+touched or deleted**. This matters because the platform is a *permanent home* for
+data, and unattended producers (automated collection pipelines, enterprise
+collaborators) could otherwise fill a disk and impact other users.
+
+The ceiling is raised only by provisioning: the platform baseline `B`, a negotiated
+individual override (valuable-research cases), or an institution buying top-up.
+Because the ceiling equals `B + top-up`, metered billing to the institution stays
+within `[B, B+top-up]` — there are **no surprise beyond-cap bills**.
+
+Native quota is kept in step automatically: on any per-user free-quota change or
+group top-up change (immediately), and reconciled every Stats run on the master.
+Effective free of 0/unset maps to `none` (unlimited) — we never lock a user to zero.
 
 **We never automatically delete user data** under any design.
 

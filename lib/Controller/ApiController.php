@@ -161,6 +161,8 @@ class ApiController extends OCSController {
 		}
 		$bytes = $this->storageService->parseQuotaToBytes($quota);
 		$this->storageService->setGroupTopup($gid, $bytes);
+		// Raise/lower every member's native quota (hard ceiling) to match the new top-up.
+		$this->storageService->syncGroupQuota($gid);
 		return new DataResponse([
 			'status' => 'ok',
 			'gid'    => $gid,
@@ -209,9 +211,13 @@ class ApiController extends OCSController {
 
 		if ($default || $userId === '') {
 			$this->storageService->setDefaultFreeQuota($quota);
+			// Users with no individual override follow the default; the Stats reconcile
+			// (every run on master) pushes the new default into their native quota.
 			return new DataResponse(['status' => 'ok']);
 		}
 		$this->storageService->setFreeQuota($userId, $quota);
+		// This user's negotiated ceiling changed — sync their native quota now.
+		$this->storageService->syncUserQuota($userId);
 		return new DataResponse(['status' => 'ok']);
 	}
 

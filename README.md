@@ -145,9 +145,9 @@ Internal endpoints at `/index.php/apps/files_accounting/internal/…` are called
 
 When a group owner sets a storage grant via `user_group_admin`, the granted storage usage is charged to the owner, not the members. The billing job calls `getStorageGrantUsage(gid)` for each owned group with a non-empty grant. This returns 0 until `user_group_admin` implements the shared folder file structure; the data model and billing logic are in place.
 
-### WebDAV quota enforcement
+### Quota enforcement (hard write-stop)
 
-The bundled `QuotaPlugin` (Sabre) overrides `quota-available-bytes` and `quota-used-bytes` PROPFIND responses to reflect the user's `freequota` setting when set, ensuring WebDAV clients (including the Nextcloud desktop sync client) respect the configured limit.
+The effective free quota (baseline + individual override + institutional top-up) is pushed into Nextcloud's **native per-user quota** by `StorageService::syncUserQuota()` — on any per-user free-quota or group top-up change, and reconciled every `Stats` run on the master. Nextcloud core then enforces it: writes past the ceiling return `507 Insufficient Storage` and sync clients (incl. the desktop client) see the limit over WebDAV. Existing data is never touched or deleted. On the master/silo topology the quota is set on the master and `files_sharding` propagates it (`UserChangedEvent`) to the user's silo, where writes are enforced. An effective quota of 0/unset maps to `none` (unlimited).
 
 ### Pod usage
 

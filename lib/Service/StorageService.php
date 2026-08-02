@@ -581,6 +581,44 @@ class StorageService {
 		return $this->parseQuotaToBytes($base) + $this->getUserTopupBytes($userId);
 	}
 
+	/**
+	 * Push the user's effective free quota into Nextcloud's NATIVE per-user quota, so
+	 * core enforces it as a hard write-stop (507 past the ceiling; existing data is
+	 * never touched) and reports it to sync clients. Call on the master: the resulting
+	 * UserChangedEvent(quota) is propagated to the user's silo by files_sharding and
+	 * enforced there. Effective free of 0/unset → 'none' (unlimited) — we never lock a
+	 * user to zero bytes. No-op when already correct (avoids needless propagation).
+	 */
+	public function syncUserQuota(string $userId): void {
+		$user = $this->userManager->get($userId);
+		if ($user === null) {
+			return;
+		}
+		$bytes   = $this->getEffectiveFreeBytes($userId);
+		$desired = $bytes > 0 ? \OCP\Util::humanFileSize($bytes) : 'none';
+		$current = (string)$user->getQuota();
+		if ($current === $desired) {
+			return;
+		}
+		// Also skip if the current value only differs in formatting (avoid churn).
+		if ($bytes > 0 && !in_array($current, ['none', 'default', ''], true)
+			&& \OCP\Util::humanFileSize($this->parseQuotaToBytes($current)) === $desired) {
+			return;
+		}
+		if ($bytes <= 0 && $current === 'none') {
+			return;
+		}
+		$user->setQuota($desired);
+		$this->logger->info("files_accounting: native quota for $userId set to $desired (hard write-stop)");
+	}
+
+	/** Re-sync native quota for every accepted member of a group (after a top-up change). */
+	public function syncGroupQuota(string $gid): void {
+		foreach ($this->getGroupMemberIds($gid) as $uid) {
+			$this->syncUserQuota($uid);
+		}
+	}
+
 	/** Human-readable effective free quota (baseline + institutional top-up). */
 	public function getEffectiveFreeQuota(string $userId): string {
 		$bytes = $this->getEffectiveFreeBytes($userId);

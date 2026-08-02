@@ -102,6 +102,10 @@ class Stats extends TimedJob {
 			return;
 		}
 
+		// Keep NC's native quota (the hard write-stop) in step with the effective free
+		// quota. Cheap no-op when already correct; propagates to the silo via files_sharding.
+		$this->storageService->syncUserQuota($userId);
+
 		// Only bill on the configured day of month
 		$billingDay = $this->storageService->getBillingDayOfMonth();
 		if ((int)date('j') !== $billingDay && !$dryRun) {
