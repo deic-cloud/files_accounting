@@ -512,6 +512,21 @@ class StorageService {
 	// user's groups; the university is billed for members' home usage in that band.
 
 	public function getGroupTopup(string $gid): int {
+		// Read from the master (authoritative) when called on a silo.
+		if ($this->sharding !== null && !$this->sharding->isMaster()) {
+			$masterUrl = $this->sharding->masterInternalUrl();
+			if ($masterUrl !== '') {
+				$resp = $this->interServer?->postDirect($masterUrl, 'internal/getgrouptopup',
+					['gid' => $gid], 'files_accounting');
+				if (is_array($resp) && isset($resp['bytes'])) {
+					return (int)$resp['bytes'];
+				}
+			}
+		}
+		return $this->readGroupTopupLocal($gid);
+	}
+
+	public function readGroupTopupLocal(string $gid): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('topup_bytes')->from('files_accounting_topup')
 			->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)));
@@ -522,6 +537,22 @@ class StorageService {
 	}
 
 	public function setGroupTopup(string $gid, int $bytes): void {
+		// The top-up table + billing are authoritative on the master. A group owner may
+		// set it from their silo, so forward there rather than writing a silo-local row
+		// that the master's billing never sees.
+		if ($this->sharding !== null && !$this->sharding->isMaster()) {
+			$masterUrl = $this->sharding->masterInternalUrl();
+			if ($masterUrl !== '') {
+				$this->interServer?->postDirect($masterUrl, 'internal/setgrouptopup',
+					['gid' => $gid, 'bytes' => $bytes], 'files_accounting');
+				return;
+			}
+		}
+		$this->applyGroupTopupLocal($gid, $bytes);
+	}
+
+	/** Local write of the group top-up + member native-quota sync (runs on the master). */
+	public function applyGroupTopupLocal(string $gid, int $bytes): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete('files_accounting_topup')
 			->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)));
@@ -535,6 +566,7 @@ class StorageService {
 			]);
 			$qb->executeStatement();
 		}
+		$this->syncGroupQuota($gid);
 	}
 
 	/** All groups with a home top-up set: [gid => topup_bytes]. */

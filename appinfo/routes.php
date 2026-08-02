@@ -33,6 +33,8 @@ return [
 		['name' => 'Internal#currentUsageAverage', 'url' => '/internal/currentusageaverage', 'verb' => 'POST'],
 		['name' => 'Internal#personalStorage',     'url' => '/internal/personalstorage',     'verb' => 'POST'],
 		['name' => 'Internal#setFreeQuota',        'url' => '/internal/setfreequota',        'verb' => 'POST'],
+		['name' => 'Internal#setGroupTopup',       'url' => '/internal/setgrouptopup',       'verb' => 'POST'],
+		['name' => 'Internal#getGroupTopup',       'url' => '/internal/getgrouptopup',       'verb' => 'POST'],
 		['name' => 'Internal#getPrepaid',          'url' => '/internal/prepaid',             'verb' => 'GET'],
 		['name' => 'Internal#setPrepaid',          'url' => '/internal/prepaid',             'verb' => 'POST'],
 		['name' => 'Internal#expireGifts',         'url' => '/internal/expiregifts',         'verb' => 'POST'],

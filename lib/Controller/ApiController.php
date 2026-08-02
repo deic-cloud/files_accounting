@@ -43,6 +43,15 @@ class ApiController extends OCSController {
 		return $user !== null && $this->groupManager->isAdmin($user->getUID());
 	}
 
+	/** Platform admin, or the owner of $gid (institution self-service). */
+	private function isAdminOrGroupOwner(string $gid): bool {
+		if ($this->isAdmin()) {
+			return true;
+		}
+		$uid = $this->currentUserId();
+		return $uid !== '' && $gid !== '' && $uid === $this->storageService->getGroupOwner($gid);
+	}
+
 	private function currentUserId(): string {
 		return $this->userSession->getUser()?->getUID() ?? '';
 	}
@@ -132,12 +141,13 @@ class ApiController extends OCSController {
 		return new DataResponse(['status' => 'ok', 'id' => $id, 'payment_ref' => $ref]);
 	}
 
-	/** Get a group's home-directory quota top-up (BILLING.md Option B). Admin only. */
+	/** Get a group's home-directory quota top-up (BILLING.md Option B). Admin or group owner. */
+	#[NoAdminRequired]
 	public function getGroupTopup(): DataResponse {
-		if (!$this->isAdmin()) {
+		$gid = (string)$this->request->getParam('gid', '');
+		if (!$this->isAdminOrGroupOwner($gid)) {
 			return new DataResponse([], Http::STATUS_FORBIDDEN);
 		}
-		$gid = (string)$this->request->getParam('gid', '');
 		if ($gid === '') {
 			return new DataResponse(['error' => 'gid required'], Http::STATUS_BAD_REQUEST);
 		}
@@ -149,20 +159,21 @@ class ApiController extends OCSController {
 		]);
 	}
 
-	/** Set a group's home-directory quota top-up. Body: {gid, quota}. Admin only. */
+	/** Set a group's home-directory quota top-up. Body: {gid, quota}. Admin or group owner. */
+	#[NoAdminRequired]
 	public function setGroupTopup(): DataResponse {
-		if (!$this->isAdmin()) {
+		$gid   = (string)$this->request->getParam('gid', '');
+		if (!$this->isAdminOrGroupOwner($gid)) {
 			return new DataResponse([], Http::STATUS_FORBIDDEN);
 		}
-		$gid   = (string)$this->request->getParam('gid', '');
 		$quota = (string)$this->request->getParam('quota', '');
 		if ($gid === '') {
 			return new DataResponse(['error' => 'gid required'], Http::STATUS_BAD_REQUEST);
 		}
 		$bytes = $this->storageService->parseQuotaToBytes($quota);
+		// setGroupTopup writes on the master (forwarding from a silo) and syncs every
+		// member's native quota (hard ceiling) to match the new top-up.
 		$this->storageService->setGroupTopup($gid, $bytes);
-		// Raise/lower every member's native quota (hard ceiling) to match the new top-up.
-		$this->storageService->syncGroupQuota($gid);
 		return new DataResponse([
 			'status' => 'ok',
 			'gid'    => $gid,

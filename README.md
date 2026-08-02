@@ -91,8 +91,8 @@ All OCS endpoints return JSON when `?format=json` is appended. Admin authenticat
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/bills/markpaid` | Mark bills paid (single or bulk) + clear notifications. Body: `{ids:[...], payment_ref?}`. `payment_ref` (optional) records the bank/payment reference in a dedicated column; the invoice number (`reference_id`) is never overwritten |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/bills/paymentref` | Edit a single bill's bank/payment reference. Body: `{id, payment_ref}` |
 | `GET` | `/apps/files_accounting/invoice/view?user=&file=` | (non-OCS, admin session) Stream an invoice PDF inline for viewing in the browser |
-| `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Get a group's home-quota top-up. Param: `gid` |
-| `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Set a group's home-quota top-up (Option B). Body: `{gid, quota}` (`0` removes) |
+| `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Get a group's home-quota top-up. Param: `gid`. **Admin or the group owner** (institution self-service). On a silo, reads the authoritative value from the master |
+| `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Set a group's home-quota top-up (Option B). Body: `{gid, quota}` (`0` removes). **Admin or the group owner**. On a silo, the write is forwarded to the master (billing authority) and every member's native quota is re-synced |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Get free quota. Param: `user` |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Set free quota. Body: `{user, quota}` or `{quota, default:true}` |
 
@@ -137,6 +137,8 @@ Internal endpoints at `/index.php/apps/files_accounting/internal/…` are called
 | `POST /internal/currentusageaverage` | Returns monthly usage average from local flat file |
 | `POST /internal/personalstorage` | Returns local usage + free quota |
 | `POST /internal/setfreequota` | Updates user's free quota preference locally |
+| `POST /internal/setgrouptopup` | Master-side write of a group top-up forwarded by a silo (owner self-service) + member quota re-sync |
+| `POST /internal/getgrouptopup` | Master-side read of a group's authoritative top-up |
 | `GET /internal/prepaid` | Returns prepaid credit balance |
 | `POST /internal/prepaid` | Updates prepaid credit balance |
 | `POST /internal/expiregifts` | Expires stale gift codes for a user |

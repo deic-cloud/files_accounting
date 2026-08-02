@@ -93,6 +93,38 @@ class InternalController extends Controller {
 		return new JSONResponse(['status' => 'ok']);
 	}
 
+	/** Master-side write of a group top-up forwarded by a silo (owner self-service). */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	public function setGroupTopup(): JSONResponse {
+		if (!$this->checkSecret()) {
+			return $this->unauthorized();
+		}
+		$gid   = (string)$this->request->getParam('gid', '');
+		$bytes = (int)$this->request->getParam('bytes', 0);
+		if ($gid === '') {
+			return new JSONResponse(['error' => 'Missing gid'], Http::STATUS_BAD_REQUEST);
+		}
+		$this->storageService->applyGroupTopupLocal($gid, $bytes);
+		return new JSONResponse(['status' => 'ok']);
+	}
+
+	/** Master-side read of a group top-up (silo reads the authoritative value). */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	public function getGroupTopup(): JSONResponse {
+		if (!$this->checkSecret()) {
+			return $this->unauthorized();
+		}
+		$gid = (string)$this->request->getParam('gid', '');
+		if ($gid === '') {
+			return new JSONResponse(['error' => 'Missing gid'], Http::STATUS_BAD_REQUEST);
+		}
+		return new JSONResponse(['bytes' => $this->storageService->readGroupTopupLocal($gid)]);
+	}
+
 	#[PublicPage]
 	#[NoCSRFRequired]
 	#[NoAdminRequired]

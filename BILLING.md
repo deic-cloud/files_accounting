@@ -214,7 +214,9 @@ New:
 
 ## 11. Deferred / open
 
-- University-facing self-service (group owner sets their own top-up) — admin + API
-  only for now; owner UI in `user_group_admin` later.
+- ~~University-facing self-service (group owner sets their own top-up)~~ — **DONE**:
+  the group owner sets their own home-directory top-up from the group's Settings tab
+  in `user_group_admin` (the `grouptopup` OCS endpoint now authorises admin *or* the
+  group owner; a silo forwards the write to the master).
 - Sabre hard-stop quota enforcement (billing threshold only for now).
 - No PayPal / card gateway (decided against — §7).
