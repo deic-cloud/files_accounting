@@ -46,6 +46,9 @@ class Notifier implements INotifier {
 			'unpaid_bill' => $notification
 				->setParsedSubject($l->t('Storage invoice due: %s %s', [$p['amount'] ?? '', $p['currency'] ?? '']))
 				->setParsedMessage($l->t('Your storage invoice for %s is awaiting payment.', [$p['period'] ?? ''])),
+			'quota_reached' => $notification
+				->setParsedSubject($l->t('Storage quota reached (%s)', [$p['quota'] ?? '']))
+				->setParsedMessage($l->t('You have reached your agreed storage quota. Existing files are safe, but new uploads will be refused. Contact us if you need more space.')),
 			default => throw new UnknownNotificationException('Unknown subject'),
 		};
 

@@ -126,6 +126,14 @@ A monthly row is written even when 0 so history is complete.
   a summary of any bill (personal or domain) that has been `pending` for more than
   **3 months** (configurable). De-duped so the same bill isn't re-reported. No
   repeated user email.
+- **Researcher who reached their quota (heads-up):** individual researchers don't
+  pay, so we don't nag them with billing — but they shouldn't hit the hard write-stop
+  (§3) silently. When local usage reaches `billing_quota_notice_pct` (default 95%) of
+  their agreed quota, they get **one** persistent UI notice ("you've reached your
+  agreed quota — existing files are safe, new uploads refused, contact us to extend").
+  Keyed to one entry (no spam); cleared automatically once usage drops back below.
+  Institutions still get all the *billing* signals above; this is the *only* signal a
+  researcher gets.
 
 ## 7. Payment & marking paid
 

@@ -44,4 +44,29 @@ class NotificationService {
 			->setObject('bill', $year . '-' . $month);
 		$this->manager->markProcessed($notification);
 	}
+
+	/**
+	 * One-time heads-up to a user who has reached their agreed storage quota (the hard
+	 * write-stop). Institutions get the billing signals; this is the ONLY notice a
+	 * researcher gets — they don't pay, so we don't nag, but they shouldn't hit the
+	 * wall silently. Keyed by a fixed object so re-runs update the same entry; cleared
+	 * by dismissQuotaNotification once usage drops back below the ceiling.
+	 */
+	public function notifyQuotaReached(string $userId, string $quota): void {
+		$notification = $this->manager->createNotification();
+		$notification->setApp(Application::APP_ID)
+			->setUser($userId)
+			->setDateTime(new \DateTime())
+			->setObject('quota', 'ceiling')
+			->setSubject('quota_reached', ['quota' => $quota]);
+		$this->manager->notify($notification);
+	}
+
+	public function dismissQuotaNotification(string $userId): void {
+		$notification = $this->manager->createNotification();
+		$notification->setApp(Application::APP_ID)
+			->setUser($userId)
+			->setObject('quota', 'ceiling');
+		$this->manager->markProcessed($notification);
+	}
 }

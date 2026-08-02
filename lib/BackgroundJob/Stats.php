@@ -87,6 +87,11 @@ class Stats extends TimedJob {
 		// Log daily usage on this node (for users whose files live here)
 		$this->storageService->logDailyUsage($userId);
 
+		// Heads-up to a researcher who has reached their agreed quota. Runs where the
+		// home lives (usage > 0 here) so it fires on the silo, where the write-block
+		// happens; institutions get their signals separately via billing.
+		$this->maybeNotifyQuotaReached($userId);
+
 		// Update per-member storage_used for any groups this user belongs to
 		$memberGroups = $this->storageService->getUserMemberGroups($userId);
 		if (!empty($memberGroups)) {
@@ -113,6 +118,39 @@ class Stats extends TimedJob {
 		}
 
 		$this->billUser($userId, $dryRun);
+	}
+
+	/**
+	 * Notify a user once when their local usage reaches their native quota (the hard
+	 * ceiling), and clear it once they drop back below (with hysteresis). Only acts
+	 * where the home is local (usage > 0) and a finite quota is set. Threshold is
+	 * `billing_quota_notice_pct` (default 95%).
+	 */
+	private function maybeNotifyQuotaReached(string $userId): void {
+		$user = $this->userManager->get($userId);
+		if ($user === null) {
+			return;
+		}
+		$quotaStr = (string)$user->getQuota();
+		if (in_array($quotaStr, ['none', 'default', '', '0'], true)) {
+			return; // no finite ceiling → nothing to warn about
+		}
+		$quotaBytes = $this->storageService->parseQuotaToBytes($quotaStr);
+		if ($quotaBytes <= 0) {
+			return;
+		}
+		$usage = $this->storageService->getLocalUsage($userId);
+		$used  = (int)($usage['files_usage'] ?? 0) + (int)($usage['trash_usage'] ?? 0);
+		if ($used <= 0) {
+			return; // home not on this node (or genuinely empty) → not our node to signal
+		}
+		$pct       = $used / $quotaBytes * 100;
+		$noticePct = (float)$this->config->getSystemValue('billing_quota_notice_pct', 95);
+		if ($pct >= $noticePct) {
+			$this->notificationService->notifyQuotaReached($userId, \OCP\Util::humanFileSize($quotaBytes));
+		} elseif ($pct < $noticePct - 5) {
+			$this->notificationService->dismissQuotaNotification($userId);
+		}
 	}
 
 	private function billUser(string $userId, bool $dryRun): void {

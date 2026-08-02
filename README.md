@@ -52,6 +52,7 @@ All billing parameters live in `config/config.php`:
 | `pod_charge_per_second` | `['.*' => 0.0]` | Map of image-name regex → price/second for pod usage |
 | `pod_free_monthly_seconds` | `0` | Free tier pod-seconds per user per month |
 | `billing_admin_alert_months` | `3` | Months a bill may stay pending before the admin (`fromemail`) is emailed a digest; each bill is reported once |
+| `billing_quota_notice_pct` | `95` | Percent of the agreed quota at which a user gets the one-time "quota reached" heads-up (the hard write-stop lives in NC's native per-user quota, set from the effective free quota) |
 | `dryrunbillingusers` | `''` | Comma-separated user IDs for test runs (no DB writes, invoice prefix `test-`) |
 
 ### Setting a free quota (no-charge threshold) for a user
