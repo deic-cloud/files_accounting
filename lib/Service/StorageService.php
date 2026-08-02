@@ -667,6 +667,22 @@ class StorageService {
 	 * The owner (university) is billed for these. Returns [] if uga tables absent.
 	 */
 	public function getOwnedTopupGroups(string $userId): array {
+		// The top-up table is authoritative on the master; read it from there on a silo
+		// so a group owner's personal Accounting view is correct wherever they log in.
+		if ($this->sharding !== null && !$this->sharding->isMaster()) {
+			$masterUrl = $this->sharding->masterInternalUrl();
+			if ($masterUrl !== '') {
+				$resp = $this->interServer?->postDirect($masterUrl, 'internal/getownedtopups',
+					['userid' => $userId], 'files_accounting');
+				if (is_array($resp) && isset($resp['groups']) && is_array($resp['groups'])) {
+					return $resp['groups'];
+				}
+			}
+		}
+		return $this->getOwnedTopupGroupsLocal($userId);
+	}
+
+	public function getOwnedTopupGroupsLocal(string $userId): array {
 		if (!$this->db->tableExists('uga_groups')) {
 			return [];
 		}

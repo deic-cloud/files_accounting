@@ -125,6 +125,21 @@ class InternalController extends Controller {
 		return new JSONResponse(['bytes' => $this->storageService->readGroupTopupLocal($gid)]);
 	}
 
+	/** Master-side list of a user's owned top-up groups (for the owner's Accounting view on a silo). */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	public function getOwnedTopups(): JSONResponse {
+		if (!$this->checkSecret()) {
+			return $this->unauthorized();
+		}
+		$userId = (string)$this->request->getParam('userid', '');
+		if ($userId === '') {
+			return new JSONResponse(['error' => 'Missing userid'], Http::STATUS_BAD_REQUEST);
+		}
+		return new JSONResponse(['groups' => $this->storageService->getOwnedTopupGroupsLocal($userId)]);
+	}
+
 	#[PublicPage]
 	#[NoCSRFRequired]
 	#[NoAdminRequired]

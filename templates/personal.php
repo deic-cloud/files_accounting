@@ -116,16 +116,35 @@ $currency         = $_['currency'];
 </table>
 <?php endif; ?>
 
-<?php if (!empty($ownerGrants)): ?>
+<?php if (!empty($ownerGrants) || !empty($ownerTopups)): ?>
 <hr>
-<h3><?php p($l->t('Total usage of owned groups')); ?></h3>
+<h3><?php p($l->t('Storage you sponsor')); ?></h3>
+<p style="color:var(--color-text-maxcontrast,#888); margin:4px 0 8px;"><?php p($l->t('Storage you provide to your groups, drawn from your own quota. Grant-folder usage is measured directly; home-directory top-ups reserve quota per member and are metered on your monthly invoice.')); ?></p>
 <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
-<?php foreach ($ownerGrants as $og): ?>
-<tr>
-	<td style="padding:4px 8px 4px 0; width:160px;"><?php p($og['gid']); ?></td>
-	<td style="padding:4px 0;"><strong><?php p(\OCP\Util::humanFileSize((int)$og['total_used'])); ?></strong></td>
-</tr>
-<?php endforeach; ?>
+	<thead><tr>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Group')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Type')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Allocated')); ?></th>
+		<th style="text-align:left; padding:2px 0;"><?php p($l->t('In use')); ?></th>
+	</tr></thead>
+	<tbody>
+	<?php foreach ($ownerGrants as $og): ?>
+		<tr>
+			<td style="padding:4px 8px 4px 0;"><?php p($og['gid']); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($l->t('Grant folder')); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($og['storage_grant']); ?> / <?php p($l->t('member')); ?></td>
+			<td style="padding:4px 0;"><strong><?php p(\OCP\Util::humanFileSize((int)$og['total_used'])); ?></strong></td>
+		</tr>
+	<?php endforeach; ?>
+	<?php foreach ($ownerTopups as $tu): ?>
+		<tr>
+			<td style="padding:4px 8px 4px 0;"><?php p($tu['gid']); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($l->t('Home top-up')); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p(\OCP\Util::humanFileSize((int)$tu['topup_bytes'])); ?> / <?php p($l->t('member')); ?> &times; <?php p((int)$tu['members']); ?> = <?php p(\OCP\Util::humanFileSize((int)$tu['committed'])); ?></td>
+			<td style="padding:4px 0;"><em style="color:var(--color-text-maxcontrast,#888);"><?php p($l->t('on invoice')); ?></em></td>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
 </table>
 <?php endif; ?>
 

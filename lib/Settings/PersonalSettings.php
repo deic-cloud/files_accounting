@@ -51,6 +51,14 @@ class PersonalSettings implements ISettings {
 		}
 		unset($grant);
 
+		// Home-directory top-ups this user sponsors (Option B), drawn from their quota.
+		$ownerTopups = $uid !== '' ? $this->storageService->getOwnedTopupGroups($uid) : [];
+		foreach ($ownerTopups as &$tu) {
+			$tu['members']   = count($this->storageService->getGroupMemberIds((string)$tu['gid']));
+			$tu['committed'] = (int)$tu['topup_bytes'] * max(0, (int)$tu['members']);
+		}
+		unset($tu);
+
 		return new TemplateResponse('files_accounting', 'personal', [
 			'userId'           => $uid,
 			'years'            => $years,
@@ -65,6 +73,7 @@ class PersonalSettings implements ISettings {
 			'currency'         => $this->storageService->getBillingCurrency(),
 			'memberGroups'     => $memberGroups,
 			'ownerGrants'      => $ownerGrants,
+			'ownerTopups'      => $ownerTopups,
 		], 'blank');
 	}
 
