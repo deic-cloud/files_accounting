@@ -195,10 +195,15 @@ This model spans three apps:
 - **user_group_admin**: group = domain; group owner = institution's UID; owner
   capabilities above (set `T`, membership incl. externals, signup gate, view/pay
   invoices).
-- **user_saml**: **must create a group per email/UID domain and add the user to it
-  on creation** (the old user_saml did this — the NC port must replicate it, or the
-  domain rollup has nothing to group on). Must also honor a per-domain
-  **"signups stopped"** flag set by the group owner.
+- **Domain grouping** — a group per email/UID domain, with the user added on
+  login, so the domain rollup has something to group on. ✅ **DONE** — but in
+  **`user_group_admin`**, not by patching user_saml: `EnsureDomainGroupListener`
+  (on `UserLoggedIn`) derives the domain from the UID (`user@homeorg`, our eppn
+  uid_mapping = the old `schacHomeOrganization`) and creates a **hidden** uga group
+  (HIDDEN_OWNER sentinel) + adds the user, idempotently. The institution owner is
+  assigned later at onboarding (§8); ownerless hidden groups are never billed. This
+  keeps upstream user_saml pristine (config only). *(Still TODO: honor a per-domain
+  **"signups stopped"** flag set by the group owner.)*
 
 ## 10. Config keys (existing + new)
 
