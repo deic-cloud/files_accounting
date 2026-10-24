@@ -206,17 +206,24 @@ class Stats extends TimedJob {
 		$homeDue           = round($billableHomeGb * $chargePerGb, 2);
 		$backupDue         = 0.0;
 
-		// Storage grant (group) billing — accounted to group owner
+		// Storage grant (group) billing — counted from the group owner's quota
+		// (BILLING.md §4): the free quota left after the owner's home usage covers
+		// the grants first; only usage beyond it is charged.
+		$freeLeftBytes = max(0.0, $freeBytes - $filesHome - $trashHome);
 		$grantDue      = 0.0;
 		$grantArticles = [];
 		$grants = $this->storageService->getOwnedStorageGrants($userId);
 		foreach ($grants as $grant) {
-			$grantUsageBytes = $this->storageService->getStorageGrantUsage($grant['gid'], $year, $month);
+			$grantUsageBytes = (float)$this->storageService->getStorageGrantUsage($grant['gid'], $year, $month);
+			$coveredBytes    = min($grantUsageBytes, $freeLeftBytes);
+			$freeLeftBytes  -= $coveredBytes;
 			$grantUsageGb    = round($grantUsageBytes / (1024 ** 3), 3);
-			$charge          = round($grantUsageGb * $chargePerGb, 2);
+			$billableGb      = round(($grantUsageBytes - $coveredBytes) / (1024 ** 3), 3);
+			$charge          = round($billableGb * $chargePerGb, 2);
 			if ($charge > 0.0 || $grantUsageGb > 0) {
+				$covered = $coveredBytes > 0 ? ' (' . round($coveredBytes / (1024 ** 3), 3) . ' GB within free quota)' : '';
 				$grantArticles[] = [
-					'item'  => "Storage grant '{$grant['gid']}': {$grantUsageGb} GB, $monthName $year",
+					'item'  => "Storage grant '{$grant['gid']}': {$grantUsageGb} GB{$covered}, $monthName $year",
 					'price' => $charge,
 				];
 				$grantDue += $charge;
@@ -305,7 +312,8 @@ class Stats extends TimedJob {
 			$articles[] = $a;
 		}
 
-		$this->logger->info("files_accounting: billing $userId: home={$homeGb}GB due=$homeDue total=$totalDue");
+		$this->logger->info("files_accounting: billing $userId: home={$homeGb}GB due=$homeDue grants=$grantDue total=$totalDue"
+			. ($dryRun ? ' [dry run] ' . json_encode($articles, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : ''));
 
 		if (!$dryRun) {
 			$this->storageService->updateMonth(

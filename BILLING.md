@@ -36,8 +36,11 @@ research-group leaders) that want to *own* the storage they provide.
 - **Deliberately NOT a sync target** — kept out of the desktop sync client on
   purpose, to keep the "owner-controlled storage" narrative consistent. Not a
   fragility workaround; a design choice.
-- **Billed to the group owner.** The billing job already charges grant-folder
-  usage to the owner (`getOwnedStorageGrants` + `getStorageGrantUsage`). Size is
+- **Billed to the group owner, counted from the owner's quota.** The billing job
+  charges grant-folder usage to the owner (`getOwnedStorageGrants` +
+  `getStorageGrantUsage`); the owner's free quota left after their own home usage
+  covers the grants first, and only usage beyond it is charged (an owner given a
+  large free quota thus sponsors the grant at no charge). Size is
   `uga_groups.storage_grant` (per member) / `storage_grant_total` (committed pool);
   **both are now hard-enforced** by `user_group_admin`'s `GrantQuotaWrapper` — a
   member's grant free space is `min(per-member remaining, committed-pool remaining)`.
