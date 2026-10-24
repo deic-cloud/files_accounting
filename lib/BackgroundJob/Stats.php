@@ -280,6 +280,7 @@ class Stats extends TimedJob {
 		// First-month pro-ration
 		if ($month === (int)($homeAvg['first_month'] ?? 0)) {
 			$days = (int)($homeAvg['days'] ?? 0);
+			$billingDay = $this->storageService->getBillingDayOfMonth();
 			if ($billingDay < (int)($homeAvg['first_day'] ?? 0) && $days > 0) {
 				$factor   = $days / 28;
 				$homeDue  = round($factor * $homeDue, 2);
