@@ -180,7 +180,7 @@ class StorageService {
 		$total     = 0;
 		$count     = 0;
 		foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-			$row = explode(' ', trim($line));
+			$row = self::logFields($line, 5);
 			if (count($row) < 6 || $row[0] !== $gid) {
 				continue;
 			}
@@ -195,6 +195,20 @@ class StorageService {
 			}
 		}
 		return $count > 0 ? (int)($total / $count) : 0;
+	}
+
+	/**
+	 * A usage-log line "<id> <field>…" as [id, field, …]. The id (group or user id)
+	 * may contain spaces - "Large AAU files" - so the fixed number of trailing
+	 * fields is taken from the end. [] if the line is too short.
+	 */
+	private static function logFields(string $line, int $fields): array {
+		$parts = explode(' ', trim($line));
+		if (count($parts) < $fields + 1) {
+			return [];
+		}
+		$tail = array_splice($parts, -$fields);
+		return array_merge([implode(' ', $parts)], $tail);
 	}
 
 	public function logGrantUsage(string $gid, int $bytes, bool $overwrite = false): void {
@@ -212,7 +226,7 @@ class StorageService {
 		$lines    = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 		$lastLine = !empty($lines) ? end($lines) : '';
 		if ($lastLine !== '') {
-			$parts = explode(' ', $lastLine);
+			$parts = self::logFields($lastLine, 5);
 			if (count($parts) >= 4 && $parts[0] === $gid
 				&& (int)$parts[1] === $year && (int)$parts[2] === $month && (int)$parts[3] === $day
 			) {
@@ -313,7 +327,7 @@ class StorageService {
 		$lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
 		$lastLine = !empty($lines) ? end($lines) : '';
 		if ($lastLine !== '') {
-			$parts = explode(' ', $lastLine);
+			$parts = self::logFields($lastLine, 6);
 			if (count($parts) >= 4 && $parts[0] === $userId
 				&& (int)$parts[1] === $year && (int)$parts[2] === $month && (int)$parts[3] === $day
 			) {
@@ -352,7 +366,7 @@ class StorageService {
 		$firstMonth = 0;
 
 		foreach ($lines as $line) {
-			$row = explode(' ', trim($line));
+			$row = self::logFields($line, 6);
 			if (count($row) < 7 || $row[0] !== $userId) {
 				continue;
 			}
@@ -396,7 +410,7 @@ class StorageService {
 		}
 		$rows = [];
 		foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-			$row = explode(' ', trim($line));
+			$row = self::logFields($line, 6);
 			if (count($row) < 7 || $row[0] !== $userId) {
 				continue;
 			}
