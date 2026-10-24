@@ -92,16 +92,6 @@ class Stats extends TimedJob {
 		// happens; institutions get their signals separately via billing.
 		$this->maybeNotifyQuotaReached($userId);
 
-		// Update per-member storage_used for any groups this user belongs to
-		$memberGroups = $this->storageService->getUserMemberGroups($userId);
-		if (!empty($memberGroups)) {
-			$currentUsage = $this->storageService->getLocalUsage($userId);
-			$usedBytes    = $currentUsage['files_usage'] + $currentUsage['trash_usage'];
-			foreach ($memberGroups as $group) {
-				$this->storageService->updateMemberUsage($group['gid'], $userId, $usedBytes);
-			}
-		}
-
 		// Only run billing on master
 		if (!$this->storageService->isMaster()) {
 			return;

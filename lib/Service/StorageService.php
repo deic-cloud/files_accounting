@@ -270,22 +270,6 @@ class StorageService {
 		}
 	}
 
-	/** Update per-member storage_used in uga_group_members. */
-	public function updateMemberUsage(string $gid, string $userId, int $bytes): void {
-		if (!$this->db->tableExists('uga_group_members')) {
-			return;
-		}
-		try {
-			$qb = $this->db->getQueryBuilder();
-			$qb->update('uga_group_members')
-				->set('storage_used', $qb->createNamedParameter($bytes, IQueryBuilder::PARAM_INT))
-				->where($qb->expr()->eq('gid', $qb->createNamedParameter($gid)))
-				->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($userId)));
-			$qb->executeStatement();
-		} catch (\Throwable $e) {
-			$this->logger->debug('files_accounting: updateMemberUsage failed: ' . $e->getMessage());
-		}
-	}
 
 	/** Returns groups owned by $userId that have a storage_grant set. */
 	public function getOwnedStorageGrants(string $userId): array {
