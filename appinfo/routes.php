@@ -29,6 +29,9 @@ return [
 	'routes' => [
 		// Admin: view an invoice PDF in the browser
 		['name' => 'Invoice#view', 'url' => '/invoice/view', 'verb' => 'GET'],
+		// Pod usage reports from the container service (old service URLs; trusted net)
+		['name' => 'PodUsage#report',     'url' => '/report_pod_usage.php', 'verb' => 'POST'],
+		['name' => 'PodUsage#billingDay', 'url' => '/billingday.php',       'verb' => 'GET'],
 		// Inter-silo endpoints secured with shared secret
 		['name' => 'Internal#currentUsageAverage', 'url' => '/internal/currentusageaverage', 'verb' => 'POST'],
 		['name' => 'Internal#personalStorage',     'url' => '/internal/personalstorage',     'verb' => 'POST'],

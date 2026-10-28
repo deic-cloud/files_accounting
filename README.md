@@ -155,7 +155,12 @@ The effective free quota (baseline + individual override + institutional top-up)
 
 ### Pod usage
 
-Usage of compute pods (from `user_pods`) is read from per-user flat files at `{datadirectory}/{user}/files_accounting/pods/podsusage_{year}_{month}.txt`. The billing logic is in place; pod usage reporting requires the `user_pods` app.
+Usage of compute pods is read from per-user flat files at `{datadirectory}/{user}/files_accounting/pods/podsusage_{year}_{month}.txt`, one `|`-separated line per report:
+`USER|NODE_NAME|NODE_IP|IMAGE_NAME|POD_NAME|POD_IP|START_TIME|END_TIME|RUNNING_SECONDS|CYCLE_DAY|TIMESTAMP|DAY`.
+
+The container service writes them: its `pod_usage.sh` (sciencedata_kubernetes) runs hourly and on pod deletion, and POSTs each pod's running time in the current billing period to `apps/files_accounting/report_pod_usage.php` on the pod's `HOME_SERVER` — allowed from the `trustednet` addresses only. It reads the billing day from `apps/files_accounting/billingday.php`. Reports made on or after the billing day go into the next month's file; the pod name carries the pod's UID (`<name>/<uid>`), so a re-created pod of the same name counts separately.
+
+The billing run on the billing day reads the current month's file, takes the last report per pod from before 0:00 that day, and prices the running seconds with `pod_charge_per_second` (image regex → price per second; first match wins, so list specific patterns first) after `pod_free_monthly_seconds`.
 
 ## Development
 
