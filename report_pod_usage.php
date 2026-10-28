@@ -19,7 +19,11 @@ if (!defined('OC_VERSION')) {
 		http_response_code(503);
 		exit('Service unavailable (upgrade in progress)');
 	}
-	\OCP\Server::get(\OCP\App\IAppManager::class)->loadApp('files_accounting');
+	// The user backends (e.g. user_saml) come with the authentication apps
+	$appManager = \OCP\Server::get(\OCP\App\IAppManager::class);
+	$appManager->loadApps(['authentication']);
+	$appManager->loadApps(['extended_authentication']);
+	$appManager->loadApp('files_accounting');
 }
 
 $controller = (new \OCA\FilesAccounting\AppInfo\Application())->getContainer()
