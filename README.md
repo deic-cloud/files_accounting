@@ -160,6 +160,8 @@ Usage of compute pods is read from per-user flat files at `{datadirectory}/{user
 
 The container service writes them: its `pod_usage.sh` (sciencedata_kubernetes) runs hourly and on pod deletion, and POSTs each pod's running time in the current billing period to `apps/files_accounting/report_pod_usage.php` on the pod's `HOME_SERVER` — allowed from the `trustednet` addresses only. That URL is a real script in the app root (Apache answers a POST to a missing `.php` with 405 instead of handing it to Nextcloud); the route of the same name serves `/index.php/apps/files_accounting/report_pod_usage.php`. It reads the billing day from `apps/files_accounting/billingday.php`. Reports made on or after the billing day go into the next month's file; the pod name carries the pod's UID (`<name>/<uid>`), so a re-created pod of the same name counts separately.
 
+The personal Accounting page shows a Containers section: the current billing period pod by pod (running, stopped, or last seen), the included running time (`pod_free_monthly_seconds`) used, and the totals of earlier periods as billed (amounts only when something was charged). Page and billing run share one reader (`StorageService::getPodsUsage` / `getPodsCharges`).
+
 The billing run on the billing day reads the current month's file, takes the last report per pod from before 0:00 that day, and prices the running seconds with `pod_charge_per_second` (image regex → price per second; first match wins, so list specific patterns first) after `pod_free_monthly_seconds`.
 
 ## Development

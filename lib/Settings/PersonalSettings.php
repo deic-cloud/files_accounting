@@ -59,6 +59,8 @@ class PersonalSettings implements ISettings {
 		}
 		unset($tu);
 
+		$pods = $uid !== '' ? $this->podsSummary($uid) : null;
+
 		return new TemplateResponse('files_accounting', 'personal', [
 			'userId'           => $uid,
 			'years'            => $years,
@@ -74,7 +76,46 @@ class PersonalSettings implements ISettings {
 			'memberGroups'     => $memberGroups,
 			'ownerGrants'      => $ownerGrants,
 			'ownerTopups'      => $ownerTopups,
+			'pods'             => $pods,
 		], 'blank');
+	}
+
+	/**
+	 * Container (pod) running time: the current billing period pod by pod, and the
+	 * totals of earlier periods as billed. Null when the user has never run a pod.
+	 */
+	private function podsSummary(string $uid): ?array {
+		$months = $this->storageService->getPodsUsageMonths($uid);
+		if (empty($months)) {
+			return null;
+		}
+		[$curYear, $curMonth] = $this->storageService->getCurrentPodsMonth();
+		$current = $this->storageService->getPodsUsage($uid, $curYear, $curMonth);
+		$history = [];
+		foreach ($months as [$year, $month]) {
+			if ([$year, $month] === [$curYear, $curMonth] || count($history) >= 12) {
+				continue;
+			}
+			$period = $this->storageService->getPodsPeriod($year, $month);
+			$pods = $this->storageService->getPodsUsage($uid, $year, $month, $period['end']);
+			$charges = $this->storageService->getPodsCharges($pods);
+			$history[] = [
+				'start'   => $period['start'],
+				'end'     => $period['end'],
+				'pods'    => count($pods),
+				'seconds' => $charges['total_seconds'],
+				'charge'  => $charges['total_charge'],
+			];
+		}
+		$charges = $this->storageService->getPodsCharges($current);
+		return [
+			'periodStart'  => $this->storageService->getPodsPeriod($curYear, $curMonth)['start'],
+			'current'      => $current,
+			'seconds'      => $charges['total_seconds'],
+			'charge'       => $charges['total_charge'],
+			'freeSeconds'  => $charges['free_seconds'],
+			'history'      => $history,
+		];
 	}
 
 	public function getSection(): string {

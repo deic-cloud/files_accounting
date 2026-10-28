@@ -246,7 +246,7 @@ class Stats extends TimedJob {
 			}
 		}
 
-		// Pod usage — stub until user_pods is ported
+		// Pod usage — reported by the container service (PodUsageController)
 		$podsDue      = 0.0;
 		$podsArticles = [];
 		$podsUsage    = $this->getPodsMonthlyUse($userId, $year, $month);
@@ -364,57 +364,11 @@ class Stats extends TimedJob {
 		return $lastLogin > 0 && $lastLogin >= (time() - 35 * 24 * 3600);
 	}
 
+	/** Pod usage in the billing period ending on this month's billing day. */
 	private function getPodsMonthlyUse(string $userId, int $year, int $month): array {
-		$chargePatterns = (array)$this->config->getSystemValue('pod_charge_per_second', ['.*' => 0.0]);
-		$freeSeconds    = (int)$this->config->getSystemValue('pod_free_monthly_seconds', 0);
-		$path           = $this->storageService->getPodsUsageFilePath($userId, $year, $month);
-
-		$ret = ['total_charge' => 0.0, 'seconds' => [], 'charges' => []];
-		if (!file_exists($path)) {
-			return $ret;
-		}
-
-		$lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-		$accountedPods = [];
-		$totalSeconds  = 0;
-		$totalCharge   = 0.0;
-
-		for ($i = count($lines) - 1; $i >= 0; $i--) {
-			$row = explode('|', $lines[$i]);
-			if (count($row) < 11 || $row[0] !== $userId) {
-				continue;
-			}
-			$podName   = $row[4];
-			$imageName = $row[3];
-			$runSec    = (int)$row[8];
-			$cycleDay  = (int)$row[9];
-			$reportTs  = (int)$row[10];
-			$billingTs = mktime(0, 0, 0, $month, $cycleDay, $year);
-			if (isset($accountedPods[$podName]) || $reportTs >= $billingTs) {
-				continue;
-			}
-			$accountedPods[$podName] = true;
-			$ret['seconds'][$imageName] = ($ret['seconds'][$imageName] ?? 0) + $runSec;
-			$ret['charges'][$imageName] = $ret['charges'][$imageName] ?? 0.0;
-			foreach ($chargePatterns as $pattern => $price) {
-				if (!preg_match('|' . $pattern . '|', $imageName)) {
-					continue;
-				}
-				if ($totalSeconds >= $freeSeconds) {
-					$charge = ((float)$price) * $runSec;
-				} elseif ($totalSeconds + $runSec > $freeSeconds) {
-					$charge = ((float)$price) * ($runSec - ($freeSeconds - $totalSeconds));
-				} else {
-					$charge = 0.0;
-				}
-				$ret['charges'][$imageName] += $charge;
-				$totalCharge += $charge;
-				$totalSeconds += $runSec;
-				break;
-			}
-		}
-		$ret['total_charge'] = $totalCharge;
-		return $ret;
+		$period = $this->storageService->getPodsPeriod($year, $month);
+		return $this->storageService->getPodsCharges(
+			$this->storageService->getPodsUsage($userId, $year, $month, $period['end']));
 	}
 
 	private static function secondsToTime(int $s): string {

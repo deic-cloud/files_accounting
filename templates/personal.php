@@ -94,6 +94,82 @@ $currency         = $_['currency'];
 </table>
 <?php endif; ?>
 
+<?php if (!empty($pods)):
+	// Running time as "3 d 4 h", "5 h 12 min" or "7 min"
+	$runningTime = static function (int $s) use ($l): string {
+		$d = intdiv($s, 86400); $h = intdiv($s % 86400, 3600); $m = intdiv($s % 3600, 60);
+		if ($d > 0) { return $l->t('%1$s d %2$s h', [$d, $h]); }
+		if ($h > 0) { return $l->t('%1$s h %2$s min', [$h, $m]); }
+		return $l->t('%s min', [$m]);
+	};
+	$showCharge = $pods['charge'] > 0 || array_sum(array_column($pods['history'], 'charge')) > 0;
+	$freePct = $pods['freeSeconds'] > 0 ? min(100, (int)round($pods['seconds'] / $pods['freeSeconds'] * 100)) : 0;
+?>
+<hr>
+<h3><?php p($l->t('Containers')); ?></h3>
+<p style="color:var(--color-text-maxcontrast,#888); margin:4px 0 8px;"><?php p($l->t('Running time of your containers in the current billing period, since %s. Updated every hour.', [date('j F', $pods['periodStart'])])); ?></p>
+<?php if ($pods['freeSeconds'] > 0): ?>
+<div style="margin-bottom:12px;">
+	<div style="margin-bottom:4px;">
+		<strong><?php p($runningTime($pods['seconds'])); ?></strong>
+		<?php p($l->t('of %s included per billing period', [$runningTime($pods['freeSeconds'])])); ?>
+		— <?php p($freePct); ?>%
+	</div>
+	<div style="height:8px; background:var(--color-border); border-radius:4px;">
+		<div style="height:8px; width:<?php p($freePct); ?>%; background:var(--color-primary); border-radius:4px;"></div>
+	</div>
+</div>
+<?php endif; ?>
+<?php if (!empty($pods['current'])): ?>
+<table id="fa-pods-table" style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+	<thead><tr>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Container')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Image')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Running time')); ?></th>
+		<th style="text-align:left; padding:2px 0;"><?php p($l->t('Status')); ?></th>
+	</tr></thead>
+	<tbody>
+	<?php foreach ($pods['current'] as $pod):
+		// A pod deleted from the Containers page reports its end; one that stopped
+		// reporting otherwise is shown with the time it was last seen.
+		if ($pod['end'] > 0)                         { $status = $l->t('Stopped %s', [date('Y-m-d H:i', $pod['end'])]); }
+		elseif ($pod['reported'] > time() - 2 * 3600) { $status = $l->t('Running'); }
+		else                                         { $status = $l->t('Last seen %s', [date('Y-m-d H:i', $pod['reported'])]); }
+	?>
+		<tr>
+			<td style="padding:4px 8px 4px 0;"><?php p($pod['name']); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p(preg_replace('|^sciencedata/|', '', $pod['image'])); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($runningTime($pod['seconds'])); ?></td>
+			<td style="padding:4px 0;"><?php p($status); ?></td>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
+</table>
+<?php else: ?>
+<p><em style="color:var(--color-text-maxcontrast,#888)"><?php p($l->t('No containers in this billing period.')); ?></em></p>
+<?php endif; ?>
+<?php if (!empty($pods['history'])): ?>
+<table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+	<thead><tr>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Billing period')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Containers')); ?></th>
+		<th style="text-align:left; padding:2px 8px 2px 0;"><?php p($l->t('Running time')); ?></th>
+		<?php if ($showCharge): ?><th style="text-align:left; padding:2px 0;"><?php p($l->t('Amount')); ?></th><?php endif; ?>
+	</tr></thead>
+	<tbody>
+	<?php foreach ($pods['history'] as $h): ?>
+		<tr>
+			<td style="padding:4px 8px 4px 0;"><?php p(date('j M Y', $h['start']) . ' – ' . date('j M Y', $h['end'] - 86400)); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($h['pods']); ?></td>
+			<td style="padding:4px 8px 4px 0;"><?php p($runningTime($h['seconds'])); ?></td>
+			<?php if ($showCharge): ?><td style="padding:4px 0;"><?php p(number_format($h['charge'], 2) . ' ' . $currency); ?></td><?php endif; ?>
+		</tr>
+	<?php endforeach; ?>
+	</tbody>
+</table>
+<?php endif; ?>
+<?php endif; ?>
+
 <?php if (!empty($memberGroups)): ?>
 <hr>
 <h3><?php p($l->t('Group usage')); ?></h3>

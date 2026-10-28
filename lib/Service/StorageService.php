@@ -105,6 +105,129 @@ class StorageService {
 		return $this->getUserAccountingDir($userId) . '/pods/podsusage_' . $year . '_' . $month . '.txt';
 	}
 
+	// -------------------------------------------------------------------------
+	// Pod usage — reported by the container service (PodUsageController)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * The billing period of a month's pod usage file: from the billing day of the
+	 * previous month to 0:00 on the billing day of this month (the reporter files
+	 * reports made from the billing day on under the next month).
+	 *
+	 * @return array{start: int, end: int}
+	 */
+	public function getPodsPeriod(int $year, int $month): array {
+		$day = max(1, $this->getBillingDayOfMonth());
+		return [
+			'start' => mktime(0, 0, 0, $month - 1, $day, $year),
+			'end'   => mktime(0, 0, 0, $month, $day, $year),
+		];
+	}
+
+	/**
+	 * The month whose usage file the reports made now go to.
+	 *
+	 * @return array{0: int, 1: int} [year, month]
+	 */
+	public function getCurrentPodsMonth(?int $now = null): array {
+		$now ??= time();
+		$ts = (int)date('j', $now) >= $this->getBillingDayOfMonth()
+			? mktime(0, 0, 0, (int)date('n', $now) + 1, 1, (int)date('Y', $now))
+			: $now;
+		return [(int)date('Y', $ts), (int)date('n', $ts)];
+	}
+
+	/**
+	 * Months with a pod usage file, newest first.
+	 *
+	 * @return list<array{0: int, 1: int}> [[year, month], ...]
+	 */
+	public function getPodsUsageMonths(string $userId): array {
+		$months = [];
+		foreach (glob($this->getUserAccountingDir($userId) . '/pods/podsusage_*_*.txt') ?: [] as $file) {
+			if (preg_match('/podsusage_(\d{4})_(\d{1,2})\.txt$/', $file, $m)) {
+				$months[] = [(int)$m[1], (int)$m[2]];
+			}
+		}
+		usort($months, static fn (array $a, array $b): int => [$b[0], $b[1]] <=> [$a[0], $a[1]]);
+		return $months;
+	}
+
+	/**
+	 * The pods in a month's usage file: the last report per pod made before $before
+	 * (0 = all reports), latest report first. A pod is reported as "<name>/<uid>", so
+	 * a deleted and re-created pod of the same name counts as a separate pod.
+	 *
+	 * @return list<array{pod: string, name: string, image: string, seconds: int, start: int, end: int, reported: int}>
+	 */
+	public function getPodsUsage(string $userId, int $year, int $month, int $before = 0): array {
+		$path = $this->getPodsUsageFilePath($userId, $year, $month);
+		if (!is_file($path)) {
+			return [];
+		}
+		$lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+		$pods = [];
+		// USER|NODE_NAME|NODE_IP|IMAGE_NAME|POD_NAME|POD_IP|START_TIME|END_TIME|RUNNING_SECONDS|CYCLE_DAY|TIMESTAMP|DAY
+		for ($i = count($lines) - 1; $i >= 0; $i--) {
+			$row = explode('|', $lines[$i]);
+			if (count($row) < 11 || $row[0] !== $userId || isset($pods[$row[4]])) {
+				continue;
+			}
+			$reported = (int)$row[10];
+			if ($before > 0 && $reported >= $before) {
+				continue;
+			}
+			$pods[$row[4]] = [
+				'pod'      => $row[4],
+				'name'     => explode('/', $row[4])[0],
+				'image'    => $row[3],
+				'seconds'  => (int)$row[8],
+				'start'    => (int)$row[6],
+				'end'      => (int)$row[7],
+				'reported' => $reported,
+			];
+		}
+		return array_values($pods);
+	}
+
+	/**
+	 * Running time and charge per image for a list of pods (getPodsUsage): priced
+	 * with the first `pod_charge_per_second` pattern matching the image, after the
+	 * first `pod_free_monthly_seconds` of the month, which are free.
+	 *
+	 * @return array{seconds: array<string, int>, charges: array<string, float>, total_seconds: int, total_charge: float, free_seconds: int}
+	 */
+	public function getPodsCharges(array $pods): array {
+		$chargePatterns = (array)$this->config->getSystemValue('pod_charge_per_second', ['.*' => 0.0]);
+		$freeSeconds    = (int)$this->config->getSystemValue('pod_free_monthly_seconds', 0);
+		$ret = ['seconds' => [], 'charges' => [], 'total_seconds' => 0, 'total_charge' => 0.0, 'free_seconds' => $freeSeconds];
+		$charged = 0;
+		foreach ($pods as $pod) {
+			$image  = $pod['image'];
+			$runSec = $pod['seconds'];
+			$ret['seconds'][$image] = ($ret['seconds'][$image] ?? 0) + $runSec;
+			$ret['charges'][$image] = $ret['charges'][$image] ?? 0.0;
+			$ret['total_seconds'] += $runSec;
+			foreach ($chargePatterns as $pattern => $price) {
+				if (!preg_match('|' . $pattern . '|', $image)) {
+					continue;
+				}
+				if ($charged >= $freeSeconds) {
+					$charge = ((float)$price) * $runSec;
+				} elseif ($charged + $runSec > $freeSeconds) {
+					$charge = ((float)$price) * ($runSec - ($freeSeconds - $charged));
+				} else {
+					$charge = 0.0;
+				}
+				$ret['charges'][$image] += $charge;
+				$ret['total_charge']    += $charge;
+				$charged += $runSec;
+				break;
+			}
+		}
+		return $ret;
+	}
+
 	private function ensureDir(string $path): void {
 		if (!is_dir($path)) {
 			mkdir($path, 0750, true);
