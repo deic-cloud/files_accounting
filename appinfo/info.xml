@@ -18,6 +18,9 @@
 	<background-jobs>
 		<job>OCA\FilesAccounting\BackgroundJob\Stats</job>
 	</background-jobs>
+	<commands>
+		<command>OCA\FilesAccounting\Command\FreeQuota</command>
+	</commands>
 	<settings>
 		<admin>OCA\FilesAccounting\Settings\AdminSettings</admin>
 		<admin-section>OCA\FilesAccounting\Settings\AdminSection</admin-section>
