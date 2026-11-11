@@ -248,9 +248,11 @@ $groupTopups      = $_['groupTopups'] ?? [];
 <h3><?php p($l->t('Set free tier for a user')); ?></h3>
 <div>
 	<input id="fa-user-input"  type="text" placeholder="<?php p($l->t('Username')); ?>" style="width:180px;">
+<button id="fa-lookup-fq"><?php p($l->t('Look up')); ?></button>
 	<input id="fa-quota-input" type="text" placeholder="<?php p($l->t('e.g. 50 GB')); ?>" style="width:100px;">
 	<button id="fa-set-fq"><?php p($l->t('Set')); ?></button>
 	<span id="fa-fq-msg"></span>
+<div id="fa-fq-info" class="settings-hint" style="margin-top:4px;"></div>
 </div>
 
 <h3><?php p($l->t('Institutional home-quota top-up')); ?></h3>
@@ -401,6 +403,36 @@ $nowIdx = ((int)date('Y')) * 12 + ((int)date('n'));
 		});
 	});
 
+	// Current free tier of a user, before changing it: fills the amount field with the
+	// user's own value (empty = follows the default) and says what is enforced now.
+	function lookupFreeQuota() {
+		var user = document.getElementById('fa-user-input').value.trim();
+		var info = document.getElementById('fa-fq-info');
+		if (!user) return;
+		info.textContent = '…';
+		fetch(OCS_BASE + '/freequota?format=json&user=' + encodeURIComponent(user), {headers: {'OCS-APIRequest': 'true'}})
+			.then(function(r) { return r.json(); })
+			.then(function(data) {
+				var d = data && data.ocs && data.ocs.data;
+				if (!d || d.exists !== true) {
+					info.textContent = t('files_accounting', 'No account with this user ID.');
+					return;
+				}
+				// '0' or nothing set means no limit (native quota 'none')
+				var size = function(q) { return (!q || q === '0') ? t('files_accounting', 'unlimited') : q; };
+				document.getElementById('fa-quota-input').value = d.override || '';
+				info.textContent = t('files_accounting', 'Free tier') + ': ' + size(d.freequota)
+					+ (d.override ? '' : ' (' + t('files_accounting', 'the default') + ')')
+					+ ' · ' + t('files_accounting', 'enforced ceiling, with any top-up') + ': ' + size(d.effective)
+					+ (d.home ? ' · ' + t('files_accounting', 'home node') + ': ' + d.home.replace(/^https?:\/\//, '') : '');
+			})
+			.catch(function() { info.textContent = '✗'; });
+	}
+	document.getElementById('fa-lookup-fq').addEventListener('click', lookupFreeQuota);
+	document.getElementById('fa-user-input').addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') lookupFreeQuota();
+	});
+
 	document.getElementById('fa-set-fq').addEventListener('click', function() {
 		var user  = document.getElementById('fa-user-input').value.trim();
 		var quota = document.getElementById('fa-quota-input').value.trim();
@@ -410,6 +442,7 @@ $nowIdx = ((int)date('Y')) * 12 + ((int)date('n'));
 			var ok = data && data.ocs && data.ocs.data && data.ocs.data.status === 'ok';
 			msg.textContent = ok ? '✓' : '✗';
 			msg.style.color = ok ? 'green' : 'red';
+			if (ok) lookupFreeQuota();
 		});
 	});
 

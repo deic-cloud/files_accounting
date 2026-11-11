@@ -597,6 +597,18 @@ class StorageService {
 		return $this->config->getUserValue($userId, 'files_accounting', 'freequota', '');
 	}
 
+	/** Whether an account with exactly this user ID exists (get() also matches e-mail addresses). */
+	public function userExists(string $userId): bool {
+		$user = $this->userManager->get($userId);
+		return $user !== null && $user->getUID() === $userId;
+	}
+
+	/** The public URL of the user's home node, '' without files_sharding or an assignment. */
+	public function getUserHomeUrl(string $userId): string {
+		$server = $this->sharding?->getUserServer($userId);
+		return $server !== null ? (string)$server->getUrl() : '';
+	}
+
 	public function getFreeQuota(string $userId): string {
 		$val = $this->getUserFreequota($userId);
 		return $val !== '' ? $val : $this->getDefaultFreeQuota();

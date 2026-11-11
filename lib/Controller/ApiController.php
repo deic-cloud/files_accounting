@@ -240,10 +240,17 @@ class ApiController extends OCSController {
 		if ($userId === '') {
 			return new DataResponse(['error' => 'user required'], Http::STATUS_BAD_REQUEST);
 		}
+		$exists = $this->storageService->userExists($userId);
 		return new DataResponse([
 			'user'       => $userId,
+			'exists'     => $exists,
 			'freequota'  => $this->storageService->getFreeQuota($userId),
 			'default'    => $this->storageService->getDefaultFreeQuota(),
+			// The user's own override ('' = follows the default) and the ceiling actually
+			// enforced: free tier plus any institutional top-up.
+			'override'   => $exists ? $this->storageService->getUserFreequota($userId) : '',
+			'effective'  => $exists ? $this->storageService->getEffectiveFreeQuota($userId) : '',
+			'home'       => $exists ? $this->storageService->getUserHomeUrl($userId) : '',
 		]);
 	}
 
