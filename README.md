@@ -94,6 +94,7 @@ All OCS endpoints return JSON when `?format=json` is appended. Admin authenticat
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Get a group's home-quota top-up. Param: `gid`. **Admin or the group owner** (institution self-service). On a silo, reads the authoritative value from the master |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/grouptopup` | Set a group's home-quota top-up (Option B). Body: `{gid, quota}` (`0` removes). **Admin or the group owner**. On a silo, the write is forwarded to the master (billing authority) and every member's native quota is re-synced |
 | `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Get free quota. Param: `user`. Returns `freequota` (own value or default), `default`, `exists`, `override` (own value, empty = follows the default), `effective` (enforced ceiling incl. top-ups) and `home` (home node URL) |
+| `GET` | `/ocs/v2.php/apps/files_accounting/api/v1/usersearch` | Admin. Param: `q` (2+ characters). Accounts whose user ID, display name or e-mail address contains `q`, case-insensitive: `{users: [{uid, name, email}]}`, at most 20 |
 | `POST` | `/ocs/v2.php/apps/files_accounting/api/v1/freequota` | Set free quota. Body: `{user, quota}` or `{quota, default:true}` |
 
 ### Gift codes

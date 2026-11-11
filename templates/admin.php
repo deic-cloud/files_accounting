@@ -247,11 +247,12 @@ $groupTopups      = $_['groupTopups'] ?? [];
 
 <h3><?php p($l->t('Set free tier for a user')); ?></h3>
 <div>
-	<input id="fa-user-input"  type="text" placeholder="<?php p($l->t('Username')); ?>" style="width:180px;">
+	<input id="fa-user-input"  type="text" autocomplete="off" placeholder="<?php p($l->t('User ID, name or e-mail')); ?>" style="width:220px;">
 <button id="fa-lookup-fq"><?php p($l->t('Look up')); ?></button>
 	<input id="fa-quota-input" type="text" placeholder="<?php p($l->t('e.g. 50 GB')); ?>" style="width:100px;">
 	<button id="fa-set-fq"><?php p($l->t('Set')); ?></button>
 	<span id="fa-fq-msg"></span>
+<div id="fa-user-matches" style="margin-top:4px;"></div>
 <div id="fa-fq-info" class="settings-hint" style="margin-top:4px;"></div>
 </div>
 
@@ -429,8 +430,51 @@ $nowIdx = ((int)date('Y')) * 12 + ((int)date('n'));
 			.catch(function() { info.textContent = '✗'; });
 	}
 	document.getElementById('fa-lookup-fq').addEventListener('click', lookupFreeQuota);
-	document.getElementById('fa-user-input').addEventListener('keydown', function(e) {
-		if (e.key === 'Enter') lookupFreeQuota();
+
+	// Matches on user ID, display name or e-mail while typing; a click picks one.
+	var userInput = document.getElementById('fa-user-input');
+	var matchesEl = document.getElementById('fa-user-matches');
+	var matchTimer = null, lastMatches = [];
+	function showMatches(users) {
+		lastMatches = users;
+		matchesEl.textContent = '';
+		users.forEach(function(u) {
+			var row = document.createElement('div');
+			row.style.cssText = 'cursor:pointer; padding:2px 6px;';
+			row.textContent = u.uid + (u.name && u.name !== u.uid ? ' - ' + u.name : '') + (u.email ? ' <' + u.email + '>' : '');
+			row.addEventListener('mouseenter', function() { row.style.background = 'var(--color-background-hover)'; });
+			row.addEventListener('mouseleave', function() { row.style.background = ''; });
+			row.addEventListener('click', function() { pickUser(u.uid); });
+			matchesEl.appendChild(row);
+		});
+	}
+	function pickUser(uid) {
+		userInput.value = uid;
+		showMatches([]);
+		lookupFreeQuota();
+	}
+	userInput.addEventListener('input', function() {
+		clearTimeout(matchTimer);
+		var q = userInput.value.trim();
+		if (q.length < 2) { showMatches([]); return; }
+		matchTimer = setTimeout(function() {
+			fetch(OCS_BASE + '/usersearch?format=json&q=' + encodeURIComponent(q), {headers: {'OCS-APIRequest': 'true'}})
+				.then(function(r) { return r.json(); })
+				.then(function(data) {
+					if (userInput.value.trim() !== q) return;            // typed on meanwhile
+					var users = (data && data.ocs && data.ocs.data && data.ocs.data.users) || [];
+					showMatches(users);
+					if (!users.length) document.getElementById('fa-fq-info').textContent = t('files_accounting', 'No matching user.');
+				});
+		}, 300);
+	});
+	userInput.addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') {
+			// One match: take it; otherwise look up exactly what was typed
+			if (lastMatches.length === 1) pickUser(lastMatches[0].uid); else { showMatches([]); lookupFreeQuota(); }
+		} else if (e.key === 'Escape') {
+			showMatches([]);
+		}
 	});
 
 	document.getElementById('fa-set-fq').addEventListener('click', function() {

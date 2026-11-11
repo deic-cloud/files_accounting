@@ -15,6 +15,7 @@ return [
 		['name' => 'Api#setGroupTopup',  'url' => '/api/v1/grouptopup',    'verb' => 'POST'],
 		['name' => 'Api#setFreeQuota',   'url' => '/api/v1/freequota',     'verb' => 'POST'],
 		['name' => 'Api#getFreeQuota',   'url' => '/api/v1/freequota',     'verb' => 'GET'],
+		['name' => 'Api#searchUsers',    'url' => '/api/v1/usersearch',    'verb' => 'GET'],
 		['name' => 'Api#listGifts',      'url' => '/api/v1/gifts',         'verb' => 'GET'],
 		['name' => 'Api#createGift',     'url' => '/api/v1/gifts',         'verb' => 'POST'],
 		['name' => 'Api#deleteGift',     'url' => '/api/v1/gifts/{code}',  'verb' => 'DELETE'],

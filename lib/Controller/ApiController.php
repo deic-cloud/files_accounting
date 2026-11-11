@@ -232,6 +232,18 @@ class ApiController extends OCSController {
 		return new DataResponse(['status' => 'ok']);
 	}
 
+	/** Admin user search for the free-tier lookup: user ID, display name or e-mail containing q. */
+	public function searchUsers(): DataResponse {
+		if (!$this->isAdmin()) {
+			return new DataResponse([], Http::STATUS_FORBIDDEN);
+		}
+		$q = trim((string)$this->request->getParam('q', ''));
+		if (mb_strlen($q) < 2) {
+			return new DataResponse(['users' => []]);
+		}
+		return new DataResponse(['users' => $this->storageService->searchUsers($q)]);
+	}
+
 	public function getFreeQuota(): DataResponse {
 		if (!$this->isAdmin()) {
 			return new DataResponse([], Http::STATUS_FORBIDDEN);

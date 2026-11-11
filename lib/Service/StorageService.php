@@ -597,6 +597,36 @@ class StorageService {
 		return $this->config->getUserValue($userId, 'files_accounting', 'freequota', '');
 	}
 
+	/**
+	 * Accounts whose user ID, display name or e-mail address contains $q (case-insensitive),
+	 * for the admin's free-tier lookup: [['uid', 'name', 'email'], ...], at most $limit.
+	 */
+	public function searchUsers(string $q, int $limit = 20): array {
+		$users = [];
+		foreach ($this->userManager->search($q, $limit) as $user) {   // user ID and display name
+			$users[$user->getUID()] = $user;
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('userid')->from('preferences')
+			->where($qb->expr()->eq('appid', $qb->createNamedParameter('settings')))
+			->andWhere($qb->expr()->eq('configkey', $qb->createNamedParameter('email')))
+			->andWhere($qb->expr()->iLike('configvalue', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($q) . '%')))
+			->setMaxResults($limit);
+		$res = $qb->executeQuery();
+		while (($uid = $res->fetchOne()) !== false && count($users) < $limit) {
+			if (!isset($users[$uid]) && ($user = $this->userManager->get((string)$uid)) !== null && $user->getUID() === $uid) {
+				$users[$uid] = $user;
+			}
+		}
+		$res->closeCursor();
+		$out = [];
+		foreach (array_slice($users, 0, $limit) as $uid => $user) {
+			$out[] = ['uid' => (string)$uid, 'name' => $user->getDisplayName(), 'email' => (string)$user->getEMailAddress()];
+		}
+		usort($out, static fn ($a, $b) => strcasecmp($a['uid'], $b['uid']));
+		return $out;
+	}
+
 	/** Whether an account with exactly this user ID exists (get() also matches e-mail addresses). */
 	public function userExists(string $userId): bool {
 		$user = $this->userManager->get($userId);
